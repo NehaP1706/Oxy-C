@@ -4,4 +4,5 @@ run:
 	-D_XOPEN_SOURCE=700 -Wall \
 	-Wextra -Werror -Wno-unused-parameter \
 	-fno-asm \
-	include/shell.h src/functions.c src/shell.c -o shell.out
+	include/shell.h src/functions.c src/shell.c -o run.out
+	gcc src/run.c -o shell.out

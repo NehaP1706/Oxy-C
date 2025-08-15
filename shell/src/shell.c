@@ -2,8 +2,8 @@
 
 int main()
 {
-    char* user = (char*) malloc (sizeof(char)*1024);
-    char* systemName = (char*) malloc (sizeof(char)*1024);
+    char user[1024];
+    char systemName[1024];
 
     ////////////// LLM Generated Code Begins ///////////////
 
@@ -18,41 +18,26 @@ int main()
     //printf("USER: %s\n", user);
     //printf("SYSTEMNAME: %s\n", systemName);
 
-    if (!user)
-    {
-        printf("Environment Variable (USER) error.");
-        exit(1);
-    }
-
     ////////////// LLM Generated Code Ends ///////////////
 
-    char* dir_name = make_init_dir_name();
-    char* display = make_init_display(user, systemName, dir_name);
+    while (1)
+    {      
+        char* dir_name = make_init_dir_name();
 
-    while(1)
-    {
-        char* input = (char*) malloc (sizeof(char)*1024);
+        char* display = make_init_display(user, systemName, dir_name);
 
         printf("%s", display);
-        int res = scanf("%1023[^\n]", input);
+        free(display);
 
-        if (res == -1)
-        {
-            printf("scanf() error.");
-            exit(1);
-        }
+        char* input = malloc(1024);
+        scanf("%1023[^\n]", input);
 
-        scanf("%*[^\n]");  
+        scanf("%*[^\n]");
         scanf("%*c");
 
-        //break;
+        free(input);
+        free(dir_name);
     }
-
-    free(display);
-    free(dir_name);
-
-    free(systemName);
-    free(user);
 
     return 0;
 }
