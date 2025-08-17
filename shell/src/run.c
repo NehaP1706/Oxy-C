@@ -1,6 +1,7 @@
 #include <stdlib.h>
+#include <unistd.h>
 
 int main() {
-    system("gnome-terminal -- ./run.out");
+    execl("./run.out", "./run.out", (char *)NULL);
     return 0;
 }
