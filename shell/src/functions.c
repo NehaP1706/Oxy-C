@@ -187,4 +187,85 @@ void syntax_error(const char *msg, int* parse_error) {
     (*parse_error) = 1;
 }
 
+void handle_hop(char* cwd, char **argv, char* shell_home) {
+    static char last_dir[1024] = "";
+    char temp[1024];
+    int i;
+
+    for (i = 1; argv[i] != NULL; i++) {
+        char *target = argv[i];
+
+        if (strcmp(target, "-") != 0) {
+            strcpy(last_dir, cwd);
+        }
+
+        printf("COMMAND: %s %s\n", argv[0], target);
+
+        if (strcmp(target, "~") == 0 || strcmp(target, shell_home) == 0) {
+            if (chdir(shell_home) == 0) {
+                strcpy(cwd, "~");
+            } else {
+                perror("hop");
+            }
+        }
+        else if (strcmp(target, "-") == 0) {
+            if (strlen(last_dir) == 0) {
+                continue;
+            }
+            strcpy(temp, cwd);
+            if (chdir(last_dir) == 0) {
+                getcwd(cwd, 1024);
+                strcpy(last_dir, temp);   
+                printf("%s\n", cwd);
+            } else {
+                perror("hop");
+            }
+        }
+        else {
+            if (chdir(target) == 0) {
+                getcwd(cwd, 1024);
+            } else {
+                perror("hop");
+            }
+        }
+    }
+}
+
+int cmpfunc(const void *a, const void *b) {
+    return strcmp(*(char **)a, *(char **)b);
+}
+
+void handle_reveal(char *path, int a, int l) {
+    printf("FLAGS : a %d l %d\n", a, l);
+    
+    DIR *dir = opendir(path);
+
+    if (!dir) {
+        printf("No such directory!\n");
+        return;
+    }
+
+    struct dirent *entry;
+    char *files[1024];
+    int count = 0;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (!a && entry->d_name[0] == '.')
+            continue;
+        files[count++] = strdup(entry->d_name);
+    }
+    closedir(dir);
+
+    qsort(files, count, sizeof(char *), cmpfunc);
+
+    for (int i = 0; i < count; i++) {
+        if (l)
+            printf("%s\n", files[i]);
+        else
+            printf("%s ", files[i]);
+        free(files[i]);
+    }
+    if (!l) printf("\n");
+}
+
 ////////////// LLM Generated Code Ends ///////////////

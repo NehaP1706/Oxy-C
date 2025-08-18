@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <dirent.h>
 
 ////////////// LLM Generated Code Begins ///////////////
 
@@ -50,6 +51,8 @@ Atomic parse_atomic(Token* tokens, int* pos, int* parse_error);
 Token* peek(Token* tokens, int* pos);
 Token* get(Token* tokens, int* pos);
 void syntax_error(const char *msg, int* parse_error);
+void handle_hop(char* cwd, char **argv, char* shell_home);
+void handle_reveal(char* pathname, int a, int l);
 
 ////////////// LLM Generated Code Ends ///////////////
 
