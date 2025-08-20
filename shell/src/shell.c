@@ -25,18 +25,45 @@ int main()
 
     ////////////// LLM Generated Code Ends ///////////////
 
-    char* dir_name = make_init_dir_name();
     char* shell_home = getcwd(cwd, 1024);
+    char* dir_name = make_init_dir_name(shell_home);
+
+    FILE* fptr;
+    fptr = fopen("logs.txt", "r");
+
+    if (!fptr) {
+        fptr = fopen("logs.txt", "w+"); // create empty file
+    }
+
+    char logs[15][4097];
+
+    int count = 0;
+    int start = 0;
+
+    while (count < 15 && fgets(logs[count], sizeof(logs[count]), fptr)) {
+        logs[count][strcspn(logs[count], "\n")] = '\0';
+        count++;
+    }
+
+    fclose(fptr);
+
+    test_state(&start, &count, logs);
 
     while (1)
     {   
         char* display = make_init_display(user, systemName, dir_name);
 
         printf("%s", display);
+        fflush(stdout);
         free(display);
 
         char* input = malloc(1024);
         scanf("%1023[^\n]", input);
+
+        if (strcmp(input, "STOP") == 0)
+        {
+            break;
+        }
 
         scanf("%*[^\n]");
         scanf("%*c");
@@ -46,53 +73,89 @@ int main()
         int ntok = 0;
 
         tokenize(input, tokens, &ntok);
+        char cmds[4097] = "";
 
-        for (int i=0; i<ntok; i++)
-        {
-            printf("Token Type: %d, Token text: %s\n", tokens[i].type, tokens[i].text);
-        }
+        inspect_tokens(tokens, &ntok, cmds, 4097);
+
+        add_log(input, logs, &start, &count); 
+
+        test_state(&start, &count, logs);
 
         ShellCmd cmd = parse_shell_cmd(tokens, &pos, &parse_error);
 
         if (!parse_error && peek(tokens,&pos)->type == T_EOF) {
             printf("Parsed %d group(s)\n", cmd.ngroups);
+
             for (int g=0; g<cmd.ngroups; g++) {
                 for (int a=0; a<cmd.groups[g].natoms; a++) {
                     Atomic *at = &cmd.groups[g].atoms[a];
                     printf("  cmd: ");
-                    for (int i=0; at->argv && at->argv[i]; i++)
+
+                    for (int i=0; at->argv && at->argv[i]; i++) {
                         printf("%s ", at->argv[i]);
-                    if (at->infile) printf("< %s ", at->infile);
-                    if (at->outfile) printf("%s %s ", at->append?">>":">", at->outfile);
+                    }
+
+                    if (at->infile) {
+                        printf("< %s ", at->infile);
+                    }
+
+                    if (at->outfile) {
+                        printf("%s %s ", at->append?">>":">", at->outfile);
+                    }
 
                     if (at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
                         handle_hop(dir_name, at->argv, shell_home);  
                         printf("NEW DIR_NAME: %s\n", dir_name);            
                     }
-
-                    if (at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
+                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
                         printf("\n");
                         int a = 0, l=0;
                         char* pathname = (char*) malloc (sizeof(char)*1024);
-                        strcpy(pathname, (strcmp(dir_name,"~") == 0 ? shell_home : dir_name));
 
-                        for (int i=1; at->argv[i] != NULL; i++)
+                        assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                        handle_reveal(pathname, a, l);              
+                    }
+                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
+                        printf("\n");
+
+                        if (at->argv[1] == NULL)
                         {
-                            if (at->argv[i][0] == '-') {
-                                for (int j = 1; at->argv[i][j] != '\0'; j++) {
-                                    if (at->argv[i][j] == 'a') {
-                                        a = 1;
-                                    } else if (at->argv[i][j] == 'l') {
-                                        l = 1;
-                                    }
-                            }
-                            } else {
-                                strcpy(pathname, at->argv[i]);
+                            for (int i=0; i<count; i++)
+                            {
+                                int idx = (start + i)%15;
+                                printf("%s\n", logs[idx]);
                             }
                         }
-                        
-                        handle_reveal(pathname, a, l);  
-                        printf("NEW DIR_NAME: %s\n", dir_name);            
+                        else if (strcmp(at->argv[1], "purge") == 0)
+                        {
+                            start = 0;
+                            count = 0;
+                        } 
+                        else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
+                        {
+                            int num = get_num(at->argv[2]);
+
+                            if (num == -1)
+                            {
+                                syntax_error("Invalid syntax", &parse_error);
+                            }
+                            else
+                            {
+                                int idx = (count - start + num + 1)%15;
+
+                                execute_fn(logs[idx]);
+                            }
+                        }
+                    }
+                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "cat") == 0)
+                    {
+                        printf("\n");
+                        handle_cat(at, &parse_error);
+                    }
+                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "sleep") == 0)
+                    {
+                        handle_sleep(at, &parse_error);
                     }
 
                     printf("\n");
@@ -102,11 +165,10 @@ int main()
             if (!parse_error) printf("Invalid Syntax!\n");
         }
 
-        scanf("%*[^\n]");
-        scanf("%*c");
-
         free(input);
     }
+
+    update_logs(&start, &count, logs, shell_home);
 
     free(dir_name);
 
