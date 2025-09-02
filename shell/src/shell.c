@@ -10,6 +10,10 @@ int main()
     char systemName[1024];
     char cwd[1024];
 
+    Job jobs[64];
+    int job_count = 0;
+    int next_job_id = 1;
+
     ////////////// LLM Generated Code Begins ///////////////
 
     strcpy(user, getenv("USER"));
@@ -51,6 +55,8 @@ int main()
 
     while (1)
     {   
+        check_jobs(jobs, &job_count);
+        
         char* display = make_init_display(user, systemName, dir_name);
 
         printf("%s", display);
@@ -87,8 +93,15 @@ int main()
             printf("Parsed %d group(s)\n", cmd.ngroups);
 
             for (int g=0; g<cmd.ngroups; g++) {
-                for (int a=0; a<cmd.groups[g].natoms; a++) {
-                    Atomic *at = &cmd.groups[g].atoms[a];
+
+                if (cmd.groups[g].trailing_amp)
+                {
+                    do_in_bg(cmd.groups[g], jobs, &job_count, &next_job_id, dir_name, cwd, shell_home);
+                    continue;
+                }
+
+                if (cmd.groups[g].natoms == 1) {
+                    Atomic *at = &cmd.groups[g].atoms[0];
                     printf("  cmd: ");
 
                     for (int i=0; at->argv && at->argv[i]; i++) {
@@ -103,11 +116,11 @@ int main()
                         printf("%s %s ", at->append?">>":">", at->outfile);
                     }
 
-                    if (at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
+                    if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
                         handle_hop(dir_name, at->argv, shell_home);  
                         printf("NEW DIR_NAME: %s\n", dir_name);            
                     }
-                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
+                    else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
                         printf("\n");
                         int a = 0, l=0;
                         char* pathname = (char*) malloc (sizeof(char)*1024);
@@ -116,8 +129,12 @@ int main()
                         
                         handle_reveal(pathname, a, l);              
                     }
-                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
+                    else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
                         printf("\n");
+
+                        printf("START: %d, COUNT: %d\n", start, count);
+                        int num = get_num(at->argv[2]);
+                        printf("NUM: %d\n", num);
 
                         if (at->argv[1] == NULL)
                         {
@@ -142,24 +159,66 @@ int main()
                             }
                             else
                             {
-                                int idx = (count - start + num + 1)%15;
+                                int idx = ((count - start)%15 +(num - 1)%15)%15;
+                                printf("IDX: %d\n", idx);
 
-                                execute_fn(logs[idx]);
+                                execute_fn(logs[idx], tokens, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home);
                             }
                         }
                     }
-                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "cat") == 0)
-                    {
-                        printf("\n");
-                        handle_cat(at, &parse_error);
-                    }
-                    else if (at->argv && at->argv[0] && strcmp(at->argv[0], "sleep") == 0)
-                    {
-                        handle_sleep(at, &parse_error);
-                    }
+                    else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                        for (int i = 0; i < job_count - 1; i++) {
+                            for (int j = i + 1; j < job_count; j++) {
+                                if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                                    Job tmp = jobs[i];
+                                    jobs[i] = jobs[j];
+                                    jobs[j] = tmp;
+                                }
+                            }
+                        }
 
-                    printf("\n");
+                        for (int i = 0; i < job_count; i++) {
+                            printf("[%d] : %s - %s\n", 
+                            jobs[i].pid,
+                            jobs[i].cmdline,
+                            jobs[i].state == RUNNING ? "Running" : "Stopped");
+                        }
+                    }
+                    else if (!at->infile && !at->outfile && at->argv && at->argv[0])
+                    {
+                        int rc = fork();
+
+                        if (rc == 0) 
+                        {
+                            execvp(at->argv[0], at->argv);
+                            printf("EXEC() ERROR.");
+                        }
+                        else
+                        {
+                            wait(NULL);
+                        }
+                    }
+                    else
+                    {
+                        printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                        execute_command(tokens, at, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                    }
                 }
+                else
+                {
+                    if (cmd.types[0] == T_SEMI)
+                    {
+                        printf("SEQUENTIAL\n");
+                        execute_sequential(&cmd, tokens, g, &count, &start, logs, cwd, dir_name, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                    }
+                    else
+                    {
+                        printf("PIPELINING\n");
+                        execute_pipeline(tokens, &cmd, g, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                    }
+                }
+
+                printf("\n");
             }
         } else {
             if (!parse_error) printf("Invalid Syntax!\n");

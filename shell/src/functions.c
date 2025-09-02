@@ -67,7 +67,22 @@ void tokenize(const char *s, Token* tokens, int* ntok) {
         else if (*p == ';') {
             add_token(T_SEMI, NULL, 0, tokens, ntok);
             p++;
-        } else {
+        } 
+        else if (*p == '"' || *p == '\'') {
+            const char qstart = *p;
+            p++;
+
+            const char* start = p;
+            while (*p && *p != qstart) {
+                p++;
+            }
+
+            add_token(T_NAME, start, p - start, tokens, ntok);
+
+            if (*p == qstart) {
+                p++;
+            }
+        }else {
             const char* start = p;
             while (*p && !isspace(*p) && !strchr("|&><;", *p)) p++;
             add_token(T_NAME, start, p-start, tokens, ntok);
@@ -119,36 +134,65 @@ CmdGroup parse_cmd_group(Token* tokens, int* pos, int* parse_error) {
         if (peek(tokens,pos)->type != T_NAME) { syntax_error("expected command after |", parse_error); break; }
         g.atoms[g.natoms++] = parse_atomic(tokens, pos, parse_error);
     }
+
+    if (!(*parse_error)) {
+        Token *t = peek(tokens, pos);
+        if (t->type == T_AMP) {
+            g.trailing_amp = 1;
+            get(tokens, pos); 
+        } else if (t->type == T_AND_AND) { 
+            g.trailing_amp = 2;
+            get(tokens, pos); 
+        }
+    }
+
     return g;
 }
 
 ShellCmd parse_shell_cmd(Token* tokens, int* pos, int* parse_error) {
     ShellCmd sc = {0};
-    sc.groups = malloc(sizeof(CmdGroup)*32);
+    sc.groups = malloc(sizeof(CmdGroup) * 32);
+    sc.types  = malloc(sizeof(TokenType) * 32);
     sc.ngroups = 0;
 
     sc.groups[sc.ngroups++] = parse_cmd_group(tokens, pos, parse_error);
 
-    while (!(*parse_error) && peek(tokens, pos)->type == T_SEMI) {
-        get(tokens, pos); // consume ';'
-        if (peek(tokens,pos)->type == T_NAME) {
-            sc.groups[sc.ngroups++] = parse_cmd_group(tokens, pos, parse_error);
-        } else {
-            syntax_error("expected command after ;", parse_error);
+    while (!(*parse_error)) {
+        TokenType t = peek(tokens, pos)->type;
+
+        if (t == T_SEMI) {
+            get(tokens, pos); 
+            sc.types[sc.ngroups-1] = T_SEMI;
+
+            if (peek(tokens, pos)->type == T_NAME) {
+                sc.groups[sc.ngroups++] = parse_cmd_group(tokens, pos, parse_error);
+            } else {
+                syntax_error("expected command after ;", parse_error);
+                break;
+            }
+        }
+        else if (t == T_AMP || t == T_AND_AND) {
+            TokenType sep = get(tokens, pos)->type;
+            sc.types[sc.ngroups-1] = sep;
+
+            if (sep == T_AMP)
+                sc.groups[sc.ngroups-1].trailing_amp = 1;
+
+            if (peek(tokens, pos)->type == T_NAME) {
+                sc.groups[sc.ngroups++] = parse_cmd_group(tokens, pos, parse_error);
+            } else {
+                if (sep == T_AND_AND) {
+                    syntax_error("expected command after &&", parse_error);
+                }
+                break;
+            }
+        }
+        else {
             break;
         }
     }
 
-    while (!(*parse_error) && (peek(tokens, pos)->type == T_AMP)){ //|| peek(tokens, pos)->type == T_AND_AND)) {
-        TokenType sep = get(tokens, pos)->type;
-        if (peek(tokens, pos)->type == T_NAME) {
-            sc.groups[sc.ngroups++] = parse_cmd_group(tokens, pos, parse_error);
-        } else {
-            if (sep == T_AMP) sc.trailing_amp = 1;
-            else syntax_error("expected command after &&", parse_error);
-            break;
-        }
-    }
+    sc.types[sc.ngroups-1] = T_EOF;
     return sc;
 }
 
@@ -399,48 +443,916 @@ int get_num(char* input)
 	return num;
 }
 
-void execute_fn(char* cmd)
+void execute_fn(char* input, Token* tokens, Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home)
 {
-    ;
+    int pos = 0;
+    int parse_error = 0;
+    int ntok = 0;
+
+    tokenize(input, tokens, &ntok);
+    char cmds[4097] = "";
+
+    inspect_tokens(tokens, &ntok, cmds, 4097);
+
+    ShellCmd cmd = parse_shell_cmd(tokens, &pos, &parse_error);
+
+    if (!parse_error && peek(tokens,&pos)->type == T_EOF) {
+        printf("Parsed %d group(s)\n", cmd.ngroups);
+
+        for (int g=0; g<cmd.ngroups; g++) {
+            if (cmd.groups[g].trailing_amp)
+            {
+                do_in_bg(cmd.groups[g], jobs, job_count, next_job_id, dir_name, cwd, shell_home);
+                continue;
+            }
+
+            if (cmd.groups[g].natoms == 1) {
+                Atomic *at = &cmd.groups[g].atoms[0];
+                printf("  cmd: ");
+
+                for (int i=0; at->argv && at->argv[i]; i++) {
+                    printf("%s ", at->argv[i]);
+                }
+
+                if (at->infile) {
+                    printf("< %s ", at->infile);
+                }
+
+                if (at->outfile) {
+                    printf("%s %s ", at->append?">>":">", at->outfile);
+                }
+
+                if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
+                    handle_hop(dir_name, at->argv, shell_home);  
+                    printf("NEW DIR_NAME: %s\n", dir_name);            
+                }
+                else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
+                    printf("\n");
+                    int a = 0, l=0;
+                    char* pathname = (char*) malloc (sizeof(char)*1024);
+
+                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                    handle_reveal(pathname, a, l);              
+                }
+                else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                    for (int i = 0; i < *job_count - 1; i++) {
+                        for (int j = i + 1; j < *job_count; j++) {
+                            if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                                Job tmp = jobs[i];
+                                jobs[i] = jobs[j];
+                                jobs[j] = tmp;
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < *job_count; i++) {
+                        printf("[%d] : %s - %s\n", 
+                        jobs[i].pid,
+                        jobs[i].cmdline,
+                        jobs[i].state == RUNNING ? "Running" : "Stopped");
+                    }
+                }
+                else if (!at->infile && !at->outfile && at->argv && at->argv[0])
+                {
+                    int rc = fork();
+
+                    if (rc == 0) 
+                    {
+                        execvp(at->argv[0], at->argv);
+                        printf("EXEC() ERROR.");
+                    }
+                    else
+                    {
+                        wait(NULL);
+                    }
+                }
+                else
+                {
+                    printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                    execute_command_no_log(at, dir_name, shell_home, &parse_error, jobs, job_count, next_job_id);
+                }
+            }
+            else
+            {
+                if (cmd.types[0] == T_SEMI)
+                {
+                    printf("SEQUENTIAL\n");
+                    execute_sequential_no_log(&cmd, g, cwd, dir_name, shell_home, &parse_error, jobs, job_count, next_job_id);
+                }
+                else
+                {
+                    printf("PIPELINING\n");
+                    execute_pipeline_no_log(&cmd, g, dir_name, cwd, shell_home, &parse_error, jobs, job_count, next_job_id);
+                }
+            }
+
+            printf("\n");
+        }
+    } else {
+        if (!parse_error) printf("Invalid Syntax!\n");
+    }
 }
 
-void handle_cat(Atomic* at, int* parse_error)
-{
-    if (at->argv[1] == NULL)
-    {
-        syntax_error("Invalid Syntax!", parse_error);
-    }
-    else
-    {
-        FILE* fptr = fopen(at->argv[1], "r");
-
-        char str[4097];\
-        int reads = 0;
-
-        while((reads = fread(str, 1, 4097, fptr)) > 0)
-        {
-            fwrite(str, 1, reads, stdout);
+void execute_command(Token* tokens, Atomic* at, int* count, int* start, char logs[15][4097], char* dir_name, char*cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    pid_t pid = fork();
+    
+    if (pid == 0) {
+        if (at->infile) {
+            int fd = open(at->infile, O_RDONLY);
+            if (fd < 0) {
+                perror("No such file or directory");
+                exit(1);
+            }
+            dup2(fd, STDIN_FILENO);
+            close(fd);
         }
 
-        fclose(fptr);
+        if (at->outfile) {
+            int fd;
+            if (at->append)
+                fd = open(at->outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+            else
+                fd = open(at->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+            if (fd < 0) {
+                perror("Cannot open output file");
+                exit(1);
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+
+        if (strcmp(at->argv[0], "reveal") == 0)
+        {
+            int a = 0, l=0;
+            char* pathname = (char*) malloc (sizeof(char)*1024);
+
+            assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+            handle_reveal(pathname, a, l);
+            free(pathname);
+            exit(0);
+        }
+        else if (at->argv[0] && strcmp(at->argv[0], "log") == 0) {
+            printf("\n");
+
+            if (at->argv[1] == NULL)
+            {
+                for (int i=0; i<*count; i++)
+                {
+                    int idx = (*start + i)%15;
+                    printf("%s\n", logs[idx]);
+                }
+            }
+            else if (strcmp(at->argv[1], "purge") == 0)
+            {
+                *start = 0;
+                *count = 0;
+            } 
+            else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
+            {
+                int num = get_num(at->argv[2]);
+                printf("NUM: %d\n", num);
+
+                if (num == -1)
+                {
+                    syntax_error("Invalid syntax", parse_error);
+                }
+                else
+                {
+                    int idx = ((*count - *start)%15 + (num - 1)%15)%15;
+                    printf("EXECUTING LINE: %d", idx);
+                    fflush(stdout);
+
+                    execute_fn(logs[idx], tokens, jobs, job_count, next_job_id, dir_name, cwd, shell_home);
+                }
+            }
+        }
+        else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+            for (int i = 0; i < *job_count - 1; i++) {
+                for (int j = i + 1; j < *job_count; j++) {
+                    if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                        Job tmp = jobs[i];
+                        jobs[i] = jobs[j];
+                        jobs[j] = tmp;
+                    }
+                }
+            }
+
+            for (int i = 0; i < *job_count; i++) {
+                printf("[%d] : %s - %s\n", 
+                jobs[i].pid,
+                jobs[i].cmdline,
+                jobs[i].state == RUNNING ? "Running" : "Stopped");
+            }
+        }
+        else 
+        {
+            execvp(at->argv[0], at->argv);
+            perror("execvp failed");
+            exit(1);
+        }
+
+    } else {
+        waitpid(pid, NULL, 0);
     }
 }
 
-void handle_sleep(Atomic* at, int* parse_error)
-{
-    if (at->argv[1] == NULL)
-    {
-        syntax_error("Invalid Syntax!", parse_error);
+void execute_command_no_log(Atomic* at, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    pid_t pid = fork();
+    
+    if (pid == 0) {
+        if (at->infile) {
+            int fd = open(at->infile, O_RDONLY);
+            if (fd < 0) {
+                perror("No such file or directory");
+                exit(1);
+            }
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+        }
+
+        if (at->outfile) {
+            int fd;
+            if (at->append)
+                fd = open(at->outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+            else
+                fd = open(at->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+            if (fd < 0) {
+                perror("Cannot open output file");
+                exit(1);
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+
+        if (strcmp(at->argv[0], "reveal") == 0)
+        {
+            int a = 0, l=0;
+            char* pathname = (char*) malloc (sizeof(char)*1024);
+
+            assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+            handle_reveal(pathname, a, l);
+            free(pathname);
+            exit(0);
+        }
+        else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+            for (int i = 0; i < *job_count - 1; i++) {
+                for (int j = i + 1; j < *job_count; j++) {
+                    if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                        Job tmp = jobs[i];
+                        jobs[i] = jobs[j];
+                        jobs[j] = tmp;
+                    }
+                }
+            }
+
+            for (int i = 0; i < *job_count; i++) {
+                printf("[%d] : %s - %s\n", 
+                jobs[i].pid,
+                jobs[i].cmdline,
+                jobs[i].state == RUNNING ? "Running" : "Stopped");
+            }
+        }
+        else 
+        {
+            execvp(at->argv[0], at->argv);
+            perror("execvp failed");
+            exit(1);
+        }
+
+    } else {
+        waitpid(pid, NULL, 0);
     }
-    else
-    {
-        int n = get_num(at->argv[1]);
+}
 
-        struct timeval tv;
-        tv.tv_sec = n; 
-        tv.tv_usec = 0;
+void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* start, char logs[15][4097], char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    int num_atoms = cmd->groups[g].natoms;
+    int pipes[num_atoms-1][2];
 
-        select(0, NULL, NULL, NULL, &tv);
+    // Create pipes
+    for (int i=0; i<num_atoms-1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe failed");
+            exit(1);
+        }
+    }
+
+    for (int a=0; a<num_atoms; a++) {
+        pid_t pid = fork();
+        if (pid < 0) {
+            perror("fork failed");
+            exit(1);
+        }
+        if (pid == 0) {
+            Atomic *at = &cmd->groups[g].atoms[a];
+
+            // stdin from previous pipe (if not first)
+            if (a > 0) {
+                dup2(pipes[a-1][0], STDIN_FILENO);
+            }
+
+            // stdout to next pipe (if not last)
+            if (a < num_atoms-1) {
+                dup2(pipes[a][1], STDOUT_FILENO);
+            }
+
+            // Apply file redirection
+            if (at->infile && a == 0) {
+                int fd = open(at->infile, O_RDONLY);
+                if (fd < 0) { perror("open infile"); exit(1); }
+                dup2(fd, STDIN_FILENO);
+                close(fd);
+            }
+            if (at->outfile && a == num_atoms-1) {
+                int flags = O_WRONLY | O_CREAT;
+                if (at->append) {
+                    flags |= O_APPEND;
+                } else {
+                    flags |= O_TRUNC;
+                }
+                int fd = open(at->outfile, flags, 0644);
+                if (fd < 0) { perror("open outfile"); exit(1); }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+            }
+
+            for (int i=0; i<num_atoms-1; i++) {
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+            }
+
+            if (strcmp(at->argv[0], "hop") == 0)
+            {
+                handle_hop(dir_name, at->argv, shell_home); 
+            }
+            else if (strcmp(at->argv[0], "reveal") == 0)
+            {
+                int a = 0, l=0;
+                char* pathname = (char*) malloc (sizeof(char)*1024);
+
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                handle_reveal(pathname, a, l);
+                free(pathname);
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "log") == 0) {
+                printf("\n");
+
+                if (at->argv[1] == NULL)
+                {
+                    for (int i=0; i<*count; i++)
+                    {
+                        int idx = (*start + i)%15;
+                        printf("%s\n", logs[idx]);
+                    }
+                }
+                else if (strcmp(at->argv[1], "purge") == 0)
+                {
+                    *start = 0;
+                    *count = 0;
+                } 
+                else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
+                {
+                    int num = get_num(at->argv[2]);
+                    printf("NUM: %d\n", num);
+
+                    if (num == -1)
+                    {
+                        syntax_error("Invalid syntax", parse_error);
+                    }
+                    else
+                    {
+                        int idx = ((*count - *start)%15 + (num - 1)%15)%15;
+                        printf("EXECUTING LINE: %d", idx);
+                        fflush(stdout);
+
+                        execute_fn(logs[idx], tokens, jobs, job_count, next_job_id, dir_name, cwd, shell_home);
+                    }
+                }
+            }
+            else if (strcmp(at->argv[0], "ping") == 0) {
+                if (at->argv[1] && at->argv[2]) {
+                    pid_t pid = atoi(at->argv[1]);
+                    int sig = atoi(at->argv[2]) % 32;
+
+                    if (kill(pid, sig) == -1) {
+                        perror("No such process found");
+                    } else {
+                        printf("Sent signal %d to process with pid %d\n", sig, pid);
+                    }
+                } else {
+                    printf("Usage: ping <pid> <signal_number>\n");
+                }
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                for (int i = 0; i < *job_count - 1; i++) {
+                    for (int j = i + 1; j < *job_count; j++) {
+                        if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                            Job tmp = jobs[i];
+                            jobs[i] = jobs[j];
+                            jobs[j] = tmp;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < *job_count; i++) {
+                    printf("[%d] : %s - %s\n", 
+                    jobs[i].pid,
+                    jobs[i].cmdline,
+                    jobs[i].state == RUNNING ? "Running" : "Stopped");
+                }
+            }
+            else if (at->argv && at->argv[0])
+            {
+                printf("CALLING EXEC 2\n");
+                execvp(at->argv[0], at->argv);
+                printf("EXEC() ERROR.");
+            }
+            else 
+            {
+                printf("CALLING EXEC 1\n");
+                execvp(at->argv[0], at->argv);
+                perror("execvp failed");
+                exit(1);
+            }
+        }
+    }
+
+    for (int i=0; i<num_atoms-1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    for (int a=0; a<num_atoms; a++) {
+        wait(NULL);
+    }
+}
+
+void execute_pipeline_no_log(ShellCmd *cmd, int g, char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    int num_atoms = cmd->groups[g].natoms;
+    int pipes[num_atoms-1][2];
+
+    // Create pipes
+    for (int i=0; i<num_atoms-1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe failed");
+            exit(1);
+        }
+    }
+
+    for (int a=0; a<num_atoms; a++) {
+        pid_t pid = fork();
+        if (pid < 0) {
+            perror("fork failed");
+            exit(1);
+        }
+        if (pid == 0) {
+            Atomic *at = &cmd->groups[g].atoms[a];
+
+            // stdin from previous pipe (if not first)
+            if (a > 0) {
+                dup2(pipes[a-1][0], STDIN_FILENO);
+            }
+
+            // stdout to next pipe (if not last)
+            if (a < num_atoms-1) {
+                dup2(pipes[a][1], STDOUT_FILENO);
+            }
+
+            // Apply file redirection
+            if (at->infile && a == 0) {
+                int fd = open(at->infile, O_RDONLY);
+                if (fd < 0) { perror("open infile"); exit(1); }
+                dup2(fd, STDIN_FILENO);
+                close(fd);
+            }
+            if (at->outfile && a == num_atoms-1) {
+                int flags = O_WRONLY | O_CREAT;
+                if (at->append) {
+                    flags |= O_APPEND;
+                } else {
+                    flags |= O_TRUNC;
+                }
+                int fd = open(at->outfile, flags, 0644);
+                if (fd < 0) { perror("open outfile"); exit(1); }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+            }
+
+            for (int i=0; i<num_atoms-1; i++) {
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+            }
+
+            if (strcmp(at->argv[0], "hop") == 0)
+            {
+                handle_hop(dir_name, at->argv, shell_home); 
+            }
+            else if (strcmp(at->argv[0], "reveal") == 0)
+            {
+                int a = 0, l=0;
+                char* pathname = (char*) malloc (sizeof(char)*1024);
+
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                handle_reveal(pathname, a, l);
+                free(pathname);
+            }
+            else if (strcmp(at->argv[0], "ping") == 0) {
+                if (at->argv[1] && at->argv[2]) {
+                    pid_t pid = atoi(at->argv[1]);
+                    int sig = atoi(at->argv[2]) % 32;
+
+                    if (kill(pid, sig) == -1) {
+                        perror("No such process found");
+                    } else {
+                        printf("Sent signal %d to process with pid %d\n", sig, pid);
+                    }
+                } else {
+                    printf("Usage: ping <pid> <signal_number>\n");
+                }
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                for (int i = 0; i <* job_count - 1; i++) {
+                    for (int j = i + 1; j < *job_count; j++) {
+                        if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                            Job tmp = jobs[i];
+                            jobs[i] = jobs[j];
+                            jobs[j] = tmp;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < *job_count; i++) {
+                    printf("[%d] : %s - %s\n", 
+                    jobs[i].pid,
+                    jobs[i].cmdline,
+                    jobs[i].state == RUNNING ? "Running" : "Stopped");
+                }
+            }
+            else if (at->argv && at->argv[0])
+            {
+                printf("CALLING EXEC 2\n");
+                execvp(at->argv[0], at->argv);
+                printf("EXEC() ERROR.");
+            }
+            else 
+            {
+                printf("CALLING EXEC 1\n");
+                execvp(at->argv[0], at->argv);
+                perror("execvp failed");
+                exit(1);
+            }
+        }
+    }
+
+    for (int i=0; i<num_atoms-1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    for (int a=0; a<num_atoms; a++) {
+        wait(NULL);
+    }
+}
+
+void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* start, char logs[15][4097], char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    for (int i = 0; i < cmd->ngroups; i++) {
+        if (cmd->groups[g].natoms == 1) {
+            Atomic *at = &cmd->groups[g].atoms[0];
+
+            if (at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
+                handle_hop(dir_name, at->argv, shell_home);  
+                printf("NEW DIR_NAME: %s\n", dir_name);            
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
+                printf("\n");
+                int a = 0, l=0;
+                char* pathname = (char*) malloc (sizeof(char)*1024);
+
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                handle_reveal(pathname, a, l);              
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "log") == 0) {
+                printf("\n");
+
+                if (at->argv[1] == NULL)
+                {
+                    for (int i=0; i<*count; i++)
+                    {
+                        int idx = (*start + i)%15;
+                        printf("%s\n", logs[idx]);
+                    }
+                }
+                else if (strcmp(at->argv[1], "purge") == 0)
+                {
+                    *start = 0;
+                    *count = 0;
+                } 
+                else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
+                {
+                    int num = get_num(at->argv[2]);
+                    printf("NUM: %d\n", num);
+
+                    if (num == -1)
+                    {
+                        syntax_error("Invalid syntax", parse_error);
+                    }
+                    else
+                    {
+                        int idx = ((*count - *start)%15 + (num - 1)%15)%15;
+                        printf("EXECUTING LINE: %d", idx);
+                        fflush(stdout);
+
+                        execute_fn(logs[idx], tokens, jobs, job_count, next_job_id, dir_name, cwd, shell_home);
+                    }
+                }
+            }
+            else if (strcmp(at->argv[0], "ping") == 0) {
+                if (at->argv[1] && at->argv[2]) {
+                    pid_t pid = atoi(at->argv[1]);
+                    int sig = atoi(at->argv[2]) % 32;
+
+                    if (kill(pid, sig) == -1) {
+                        perror("No such process found");
+                    } else {
+                        printf("Sent signal %d to process with pid %d\n", sig, pid);
+                    }
+                } else {
+                    printf("Usage: ping <pid> <signal_number>\n");
+                }
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                for (int i = 0; i < *job_count - 1; i++) {
+                    for (int j = i + 1; j < *job_count; j++) {
+                        if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                            Job tmp = jobs[i];
+                            jobs[i] = jobs[j];
+                            jobs[j] = tmp;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < *job_count; i++) {
+                    printf("[%d] : %s - %s\n", 
+                    jobs[i].pid,
+                    jobs[i].cmdline,
+                    jobs[i].state == RUNNING ? "Running" : "Stopped");
+                }
+            }
+            else if (at->argv && at->argv[0])
+            {
+                int rc = fork();
+
+                if (rc == 0)
+                {
+                    execvp(at->argv[0], at->argv);
+                    printf("EXEC() ERROR.");
+                }
+                else
+                {
+                    wait(NULL);
+                }
+            }
+            else
+            {
+                printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                execute_command(tokens, at, count, start, logs, dir_name, cwd, shell_home, parse_error, jobs, job_count, next_job_id);
+                exit(0);
+            }
+        }
+        else
+        {
+            execute_pipeline(tokens, cmd, g, count, start, logs, dir_name, cwd, shell_home, parse_error, jobs, job_count, next_job_id);
+        }
+    }
+}
+
+void execute_sequential_no_log(ShellCmd *cmd, int g, char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id) {
+    for (int i = 0; i < cmd->ngroups; i++) {
+        if (cmd->groups[g].natoms == 1) {
+            Atomic *at = &cmd->groups[g].atoms[0];
+
+            if (at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
+                handle_hop(dir_name, at->argv, shell_home);  
+                printf("NEW DIR_NAME: %s\n", dir_name);            
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
+                printf("\n");
+                int a = 0, l=0;
+                char* pathname = (char*) malloc (sizeof(char)*1024);
+
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        
+                handle_reveal(pathname, a, l);              
+            }
+            else if (strcmp(at->argv[0], "ping") == 0) {
+                if (at->argv[1] && at->argv[2]) {
+                    pid_t pid = atoi(at->argv[1]);
+                    int sig = atoi(at->argv[2]) % 32;
+
+                    if (kill(pid, sig) == -1) {
+                        perror("No such process found");
+                    } else {
+                        printf("Sent signal %d to process with pid %d\n", sig, pid);
+                    }
+                } else {
+                    printf("Usage: ping <pid> <signal_number>\n");
+                }
+            }
+            else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                for (int i = 0; i < *job_count - 1; i++) {
+                    for (int j = i + 1; j < *job_count; j++) {
+                        if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                            Job tmp = jobs[i];
+                            jobs[i] = jobs[j];
+                            jobs[j] = tmp;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < *job_count; i++) {
+                    printf("[%d] : %s - %s\n", 
+                    jobs[i].pid,
+                    jobs[i].cmdline,
+                    jobs[i].state == RUNNING ? "Running" : "Stopped");
+                }
+            }
+            else if (at->argv && at->argv[0])
+            {
+                int rc = fork();
+
+                if (rc == 0)
+                {
+                    execvp(at->argv[0], at->argv);
+                    printf("EXEC() ERROR.");
+                }
+                else
+                {
+                    wait(NULL);
+                }
+            }
+            else
+            {
+                printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                execute_command_no_log(at, dir_name, shell_home, parse_error, jobs, job_count, next_job_id);
+                exit(0);
+            }
+        }
+        else
+        {
+            execute_pipeline_no_log(cmd, g, dir_name, cwd, shell_home, parse_error, jobs, job_count, next_job_id);
+        }
+    }
+}
+
+void do_in_bg(CmdGroup g, Job *jobs, int *job_count, int *next_job_id, char* dir_name, char* cwd, char* shell_home)
+{
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        setpgid(0, 0);
+
+        // --------- single atomic -----------
+        if (g.natoms == 1) {
+            Atomic *at = &g.atoms[0];
+
+            if (at->infile) {
+                int fd = open(at->infile, O_RDONLY);
+                if (fd < 0) { perror("No such file or directory"); exit(1); }
+                dup2(fd, STDIN_FILENO);
+                close(fd);
+            }
+            else
+            {
+                int devnull = open("/dev/null", O_RDONLY);
+                dup2(devnull, STDIN_FILENO);
+                close(devnull);
+            }
+
+            if (at->outfile) {
+                int fd;
+                if (at->append)
+                    fd = open(at->outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                else
+                    fd = open(at->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (fd < 0) { perror("Cannot open output file"); exit(1); }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+            }
+
+            if (at->argv && at->argv[0]) {
+                if (strcmp(at->argv[0], "hop") == 0) {
+                    handle_hop(dir_name, at->argv, shell_home);
+                    exit(0);
+                }
+                else if (strcmp(at->argv[0], "reveal") == 0) {
+                    int a = 0, l = 0;
+                    char* pathname = malloc(1024);
+                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                    handle_reveal(pathname, a, l);
+                    free(pathname);
+                    exit(0);
+                }
+                else if (strcmp(at->argv[0], "ping") == 0) {
+                    if (at->argv[1] && at->argv[2]) {
+                        pid_t pid = atoi(at->argv[1]);
+                        int sig = atoi(at->argv[2]) % 32;
+
+                        if (kill(pid, sig) == -1) {
+                            perror("No such process found");
+                        } else {
+                            printf("Sent signal %d to process with pid %d\n", sig, pid);
+                        }
+                    } else {
+                        printf("Usage: ping <pid> <signal_number>\n");
+                    }
+                }
+                else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
+                    for (int i = 0; i < *job_count - 1; i++) {
+                        for (int j = i + 1; j < *job_count; j++) {
+                            if (strcmp(jobs[i].cmdline, jobs[j].cmdline) > 0) {
+                                Job tmp = jobs[i];
+                                jobs[i] = jobs[j];
+                                jobs[j] = tmp;
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < *job_count; i++) {
+                        printf("[%d] : %s - %s\n", 
+                        jobs[i].pid,
+                        jobs[i].cmdline,
+                        jobs[i].state == RUNNING ? "Running" : "Stopped");
+                    }
+                }
+                else {
+                    execvp(at->argv[0], at->argv);
+                    perror("execvp failed");
+                    exit(1);
+                }
+            }
+            exit(0);
+        }
+    }
+    else if (pid > 0) {
+        jobs[*job_count].pid = pid;
+        jobs[*job_count].job_id = (*next_job_id)++;
+
+        // Build full command line string for logging
+        jobs[*job_count].cmdline[0] = '\0';
+        for (int i = 0; g.atoms[0].argv && g.atoms[0].argv[i]; i++) {
+            strcat(jobs[*job_count].cmdline, g.atoms[0].argv[i]);
+            strcat(jobs[*job_count].cmdline, " ");
+        }
+
+        (*job_count)++;
+
+        printf("[%d] %d\n", jobs[*job_count - 1].job_id, pid);
+        fflush(stdout);
+    }
+    else {
+        perror("fork failed");
+    }
+}
+
+void check_jobs(Job *jobs, int *job_count) {
+    int status;
+    pid_t result;
+
+    // Reap all finished children
+    while ((result = waitpid(-1, &status, WNOHANG)) > 0) {
+        for (int i = 0; i < *job_count; i++) {
+            if (jobs[i].pid == result) {
+                if (WIFEXITED(status)) {
+                    printf("%s with pid %d exited normally\n",
+                           jobs[i].cmdline, jobs[i].pid);
+                } else if (WIFSIGNALED(status)) {
+                    printf("%s with pid %d exited abnormally\n",
+                           jobs[i].cmdline, jobs[i].pid);
+                }
+                fflush(stdout);
+
+                // Shift jobs down safely
+                if (i < *job_count - 1) {
+                    memmove(&jobs[i], &jobs[i+1],
+                            (*job_count - i - 1) * sizeof(Job));
+                }
+                (*job_count)--;
+
+                // Stay at the same index since jobs shifted
+                i--;
+            }
+        }
+    }
+
+    if (result == -1 && errno != ECHILD) {
+        perror("waitpid");
     }
 }
 
