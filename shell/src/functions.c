@@ -513,18 +513,20 @@ void execute_fn(char* input, Token* tokens, Job* jobs, int* job_count, int* next
                         jobs[i].state == RUNNING ? "Running" : "Stopped");
                     }
                 }
-                else if (!at->infile && !at->outfile && at->argv && at->argv[0])
-                {
+                else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
                     int rc = fork();
 
-                    if (rc == 0) 
-                    {
+                    if (rc == 0) {
+                    // child
+                        setpgid(0, 0);  // new process group
                         execvp(at->argv[0], at->argv);
-                        printf("EXEC() ERROR.");
-                    }
-                    else
-                    {
-                        wait(NULL);
+                        perror("execvp");
+                        exit(1);
+                    } else {
+                    // parent
+                        fg_pid = rc;   // mark foreground job
+                        waitpid(rc, NULL, WUNTRACED); // wait (stop/exit)
+                        fg_pid = -1;   // reset after it’s done
                     }
                 }
                 else
@@ -1354,6 +1356,46 @@ void check_jobs(Job *jobs, int *job_count) {
     if (result == -1 && errno != ECHILD) {
         perror("waitpid");
     }
+}
+
+void sigint_handler(int sig, int* fg_pid) {
+    if (*fg_pid > 0) {
+        kill(-(*fg_pid), SIGINT);  // send to process group
+    }
+}
+
+void sigtstp_handler(int sig, int* fg_pid, Job* jobs, int* job_count, int* next_job_id, char* fg_cmdline) {
+    if (*fg_pid > 0) {
+        // Stop the foreground process group
+        kill(-(*fg_pid), SIGTSTP);
+
+        // Find a free slot in jobs[]
+        if (*job_count < 64) {
+            jobs[*job_count].pid = fg_pid;
+            jobs[*job_count].job_id = (*next_job_id)++;
+            jobs[*job_count].state = STOPPED;
+
+            // Copy the command line (must be set when you launched fg job)
+            strncpy(jobs[*job_count].cmdline, fg_cmdline,
+                    sizeof(jobs[*job_count].cmdline) - 1);
+            jobs[*job_count].cmdline[sizeof(jobs[*job_count].cmdline) - 1] = '\0';
+
+            (*job_count)++;
+
+            printf("[%d] Stopped %s\n",
+                   jobs[*job_count - 1].job_id,
+                   jobs[*job_count - 1].cmdline);
+            fflush(stdout);
+        }
+
+        // Reset fg_pid so shell knows no fg job
+        *fg_pid = -1;
+    }
+}
+
+void install_handlers() {
+    signal(SIGINT, sigint_handler);
+    signal(SIGTSTP, sigtstp_handler);
 }
 
 ////////////// LLM Generated Code Ends ///////////////

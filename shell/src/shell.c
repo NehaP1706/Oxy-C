@@ -166,6 +166,20 @@ int main()
                             }
                         }
                     }
+                    else if (strcmp(at->argv[0], "ping") == 0) {
+                        if (at->argv[1] && at->argv[2]) {
+                            pid_t pid = atoi(at->argv[1]);
+                            int sig = atoi(at->argv[2]) % 32;
+
+                            if (kill(pid, sig) == -1) {
+                                perror("No such process found");
+                            } else {
+                                printf("Sent signal %d to process with pid %d\n", sig, pid);
+                            }
+                        } else {
+                            printf("Usage: ping <pid> <signal_number>\n");
+                        }
+                    }
                     else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
                         for (int i = 0; i < job_count - 1; i++) {
                             for (int j = i + 1; j < job_count; j++) {
@@ -184,18 +198,20 @@ int main()
                             jobs[i].state == RUNNING ? "Running" : "Stopped");
                         }
                     }
-                    else if (!at->infile && !at->outfile && at->argv && at->argv[0])
-                    {
+                    else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
                         int rc = fork();
 
-                        if (rc == 0) 
-                        {
+                        if (rc == 0) {
+                        // child
+                            setpgid(0, 0);  // new process group
                             execvp(at->argv[0], at->argv);
-                            printf("EXEC() ERROR.");
-                        }
-                        else
-                        {
-                            wait(NULL);
+                            perror("execvp");
+                            exit(1);
+                        } else {
+                            // parent
+                            fg_pid = rc;   // mark foreground job
+                            waitpid(rc, NULL, WUNTRACED); // wait (stop/exit)
+                            fg_pid = -1;   // reset after it’s done
                         }
                     }
                     else

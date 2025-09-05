@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <sys/select.h>
 #include <fcntl.h>
+#include <signal.h>
 
 ////////////// LLM Generated Code Begins ///////////////
 
@@ -86,3 +87,9 @@ void check_jobs(Job *jobs, int *job_count);
 
 char* make_init_dir_name(char* shell_home);
 char* make_init_display(char* user, char* systemName, char* dir_name);
+
+
+// 19 - pause
+// 18 - resume
+// 9 - kill
+// signals to processes
