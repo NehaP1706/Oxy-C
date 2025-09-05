@@ -1,0 +1,3 @@
+[submodule "xv6/xv6-riscv"]
+	path = xv6/xv6-riscv
+	url = git@github.com:NehaP1706/xv6-riscv-mp1.git
