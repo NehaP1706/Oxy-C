@@ -4,6 +4,7 @@
 
 #include "sham.h"
 #include "utils.h"
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/select.h>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 
 #define BACKLOG 1
 #define RECV_BUF (SHAM_MTU+sizeof(struct sham_header))
@@ -432,43 +433,53 @@ int main(int argc, char **argv) {
     fclose(out);
     free(bufs);
 
-    // compute MD5: used to check for file integrity
-    unsigned char md5sum[MD5_DIGEST_LENGTH];
-
-    // Open the file we just wrote to
-    FILE *f = fopen(outname, "rb");
-    if (!f) 
-    { 
-        perror("fopen"); 
-        close(sock); 
-        return 1; 
+    FILE* f = fopen(outname, "rb");
+    if (!f)
+    {
+        perror("fopen");
+        exit;
     }
 
     // Open an MD5 context
-    MD5_CTX md5; 
-    MD5_Init(&md5);
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx) { perror("EVP_MD_CTX_new"); return 1; }
 
-    // Read the file in chunks of bytes
+    if (EVP_DigestInit_ex(mdctx, EVP_md5(), NULL) != 1) {
+        perror("EVP_DigestInit_ex");
+        EVP_MD_CTX_free(mdctx);
+        return 1;
+    }
+
+    // Read the file in chunks
     unsigned char ibuf[4096]; 
     size_t nr;
-
-    while ((nr=fread(ibuf,1,sizeof(ibuf),f))>0) 
-    {
-        // Update the MD5 Calculation as necessary
-        MD5_Update(&md5, ibuf, nr);
+    while ((nr = fread(ibuf, 1, sizeof(ibuf), f)) > 0) {
+        if (EVP_DigestUpdate(mdctx, ibuf, nr) != 1) {
+            perror("EVP_DigestUpdate");
+            EVP_MD_CTX_free(mdctx);
+            return 1;
+        }
     }
 
-    // Get the final digest and close the file
-    MD5_Final(md5sum, &md5);
+    // Get the final digest
+    unsigned char md5sum[EVP_MAX_MD_SIZE];
+    unsigned int mdlen;
+    if (EVP_DigestFinal_ex(mdctx, md5sum, &mdlen) != 1) {
+        perror("EVP_DigestFinal_ex");
+        EVP_MD_CTX_free(mdctx);
+        return 1;
+    }
+
+    EVP_MD_CTX_free(mdctx);
     fclose(f);
-    
-    // Convert the digest to human readable form and print
-    char hex[MD5_DIGEST_LENGTH*2+1]; 
-    
-    for (int i=0;i<MD5_DIGEST_LENGTH;i++) 
-    {
-        sprintf(hex+i*2, "%02x", md5sum[i]);
+
+    // Convert to hex
+    char hex[EVP_MAX_MD_SIZE*2+1];
+    for (unsigned int i = 0; i < mdlen; i++) {
+        sprintf(hex + i*2, "%02x", md5sum[i]);
     }
+    hex[mdlen*2] = '\0';
+
     printf("MD5: %s\n", hex);
 
     // complete
