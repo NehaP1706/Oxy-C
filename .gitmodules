@@ -1,0 +1,3 @@
+[submodule "xv6/xv6-riscv-mp1"]
+	path = xv6/xv6-riscv-mp1
+	url = ./xv6/xv6-riscv-mp1
