@@ -19,7 +19,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
             exit(1);
         }
         if (pid == 0) {
-            fg_pid = getpid();
+            *fg_pid = getpid();
             setpgid(getpid(), getpid());
                             
             signal(SIGINT, sigint_handler);
@@ -40,7 +40,9 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
             // Apply file redirection
             if (at->infile && a == 0) {
                 int fd = open(at->infile, O_RDONLY);
-                if (fd < 0) { perror("open infile"); exit(1); }
+                if (fd < 0) { 
+                    perror(""); 
+                    exit(1); }
                 dup2(fd, STDIN_FILENO);
                 close(fd);
             }
@@ -52,7 +54,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     flags |= O_TRUNC;
                 }
                 int fd = open(at->outfile, flags, 0644);
-                if (fd < 0) { perror("open outfile"); exit(1); }
+                if (fd < 0) { perror(""); exit(1); }
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
             }
@@ -71,9 +73,9 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                 int a = 0, l=0;
                 char* pathname = (char*) malloc (sizeof(char)*1024);
 
-                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
-                handle_reveal(pathname, a, l);
+                handle_reveal(pathname, a, l, prev_dir_reveal);
                 free(pathname);
             }
             else if (log_enabled && at->argv[0] && strcmp(at->argv[0], "log") == 0) {

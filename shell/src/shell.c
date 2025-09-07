@@ -13,6 +13,8 @@ int next_job_id = 1;
 char fg_cmdline[1024];
 pid_t shell_pgid;
 
+char prev_dir_reveal[1024] = "";
+
 int main()
 {
     //install_handlers();
@@ -61,7 +63,7 @@ int main()
     //test_state(&start, &count, logs);
 
     shell_pgid = getpid();
-    printf("SHELL PGID: %d\n", shell_pgid);
+    //printf("SHELL PGID: %d\n", shell_pgid);
 
     while (1)
     {   
@@ -105,7 +107,7 @@ int main()
         ShellCmd cmd = parse_shell_cmd(tokens, &pos, &parse_error);
 
         if (!parse_error && peek(tokens,&pos)->type == T_EOF) {
-            printf("Parsed %d group(s)\n", cmd.ngroups);
+            //printf("Parsed %d group(s)\n", cmd.ngroups);
 
             for (int g=0; g<cmd.ngroups; g++) {
 
@@ -117,9 +119,9 @@ int main()
 
                 if (cmd.groups[g].natoms == 1) {
                     Atomic *at = &cmd.groups[g].atoms[0];
-                    printf("  cmd: ");
+                    //printf("  cmd: ");
 
-                    for (int i=0; at->argv && at->argv[i]; i++) {
+                    /*for (int i=0; at->argv && at->argv[i]; i++) {
                         printf("%s ", at->argv[i]);
                     }
 
@@ -129,27 +131,27 @@ int main()
 
                     if (at->outfile) {
                         printf("%s %s ", at->append?">>":">", at->outfile);
-                    }
+                    }*/
 
                     if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
                         handle_hop(dir_name, at->argv, shell_home);  
-                        printf("NEW DIR_NAME: %s\n", dir_name);            
+                        //printf("NEW DIR_NAME: %s\n", dir_name);            
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
                         printf("\n");
                         int a = 0, l=0;
                         char* pathname = (char*) malloc (sizeof(char)*1024);
 
-                        assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                        assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
-                        handle_reveal(pathname, a, l);              
+                        handle_reveal(pathname, a, l, prev_dir_reveal);              
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
                         printf("\n");
 
-                        printf("START: %d, COUNT: %d\n", start, count);
-                        int num = get_num(at->argv[2]);
-                        printf("NUM: %d\n", num);
+                        //printf("START: %d, COUNT: %d\n", start, count);
+                        //int num = get_num(at->argv[2]);
+                        //printf("NUM: %d\n", num);
 
                         if (at->argv[1] == NULL)
                         {
@@ -175,7 +177,7 @@ int main()
                             else
                             {
                                 int idx = ((count - start)%15 +(num - 1)%15)%15;
-                                printf("IDX: %d\n", idx);
+                                //printf("IDX: %d\n", idx);
 
                                 execute_fn(logs[idx], tokens, &count, &start, logs, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, &fg_pid);
                             }
@@ -214,7 +216,7 @@ int main()
                         }
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
-                        printf("I'M HERE!!\n");
+                        //printf("I'M HERE!!\n");
                         int rc = fork();
                         fg_pid = rc;
 
@@ -230,7 +232,8 @@ int main()
                             signal(SIGTSTP, sigtstp_handler);
 
                             execvp(at->argv[0], at->argv);
-                            perror("execvp");
+                            printf("Command not found!\n");
+
                             exit(1);
                         } else {
                             fg_pid = rc;
@@ -249,7 +252,7 @@ int main()
                     }
                     else
                     {
-                        printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                        //printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
                         execute_command(tokens, at, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                 }
@@ -257,17 +260,17 @@ int main()
                 {
                     if (cmd.types[0] == T_SEMI)
                     {
-                        printf("SEQUENTIAL\n");
+                        //printf("SEQUENTIAL\n");
                         execute_sequential(&cmd, tokens, g, &count, &start, logs, cwd, dir_name, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                     else
                     {
-                        printf("PIPELINING\n");
+                        //printf("PIPELINING\n");
                         execute_pipeline(tokens, &cmd, g, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                 }
 
-                printf("\n");
+                //printf("\n");
             }
         } else {
             if (!parse_error) printf("Invalid Syntax!\n");

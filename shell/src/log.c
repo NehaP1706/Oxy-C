@@ -101,9 +101,9 @@ void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15
                     int a = 0, l=0;
                     char* pathname = (char*) malloc (sizeof(char)*1024);
 
-                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
-                    handle_reveal(pathname, a, l);              
+                    handle_reveal(pathname, a, l, prev_dir_reveal);              
                 }
                 else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
                     for (int i = 0; i < *job_count - 1; i++) {
@@ -128,7 +128,7 @@ void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15
 
                     if (rc == 0) {
                     // child
-                        fg_pid = getpid();
+                        *fg_pid = getpid();
                         setpgid(getpid(), getpid());
                         
                         signal(SIGINT, sigint_handler);
@@ -138,7 +138,7 @@ void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15
                         perror("execvp");
                         exit(1);
                     } else {
-                        fg_pid = rc;
+                        *fg_pid = rc;
                         setpgid(rc, rc);
 
                         signal(SIGINT, sigint_handler);
@@ -149,7 +149,7 @@ void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15
 
                         signal(SIGINT, SIG_IGN);
                         signal(SIGTSTP, SIG_IGN);
-                        fg_pid = -1;                        
+                        *fg_pid = -1;                        
                     }
                 }
                 else

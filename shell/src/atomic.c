@@ -4,7 +4,7 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
     pid_t pid = fork();
     
     if (pid == 0) {
-        fg_pid = getpid();
+        *fg_pid = getpid();
         setpgid(getpid(), getpid());
                             
         signal(SIGINT, sigint_handler);
@@ -13,7 +13,7 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
         if (at->infile) {
             int fd = open(at->infile, O_RDONLY);
             if (fd < 0) {
-                perror("No such file or directory");
+                perror("");
                 exit(1);
             }
             dup2(fd, STDIN_FILENO);
@@ -35,14 +35,14 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
             close(fd);
         }
 
-        if (stpidmp(at->argv[0], "reveal") == 0)
+        if (strcmp(at->argv[0], "reveal") == 0)
         {
             int a = 0, l=0;
             char* pathname = (char*) malloc (sizeof(char)*1024);
 
-            assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+            assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
-            handle_reveal(pathname, a, l);
+            handle_reveal(pathname, a, l, prev_dir_reveal);
             free(pathname);
             exit(0);
         }
@@ -102,12 +102,12 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
         else 
         {
             execvp(at->argv[0], at->argv);
-            perror("execvp failed");
+            perror("Command not found!\n");
             exit(1);
         }
 
     } else {
-        fg_pid = pid;
+        *fg_pid = pid;
         setpgid(pid, pid);
 
         signal(SIGINT, sigint_handler);
@@ -118,6 +118,6 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
 
         signal(SIGINT, SIG_IGN);
         signal(SIGTSTP, SIG_IGN);
-        fg_pid = -1;  
+        *fg_pid = -1;  
     }
 }

@@ -282,6 +282,16 @@
             return 0;
         }
 
+        uint32_t base=cli_seq + 1; 
+        uint32_t nextseq=cli_seq+1;
+
+        size_t fname_len = strlen(outname);
+        if (fname_len > 0) {
+            send_packet(sock, &srv, slen, nextseq, (uint8_t*)outname, fname_len, remote_win);
+            log_event("SND FILENAME SEQ=%u NAME=%s", nextseq, outname);
+            nextseq += fname_len;  // increment sequence number
+        }
+
         // File transfer mode
         // Open the file to send
         FILE *in=fopen(infile,"rb");
@@ -291,8 +301,6 @@
             return 1; 
         }
 
-        uint32_t base=cli_seq + 1; 
-        uint32_t nextseq=cli_seq+1;
         int done=0;
 
         while (!done) {

@@ -12,7 +12,7 @@ void do_in_bg(CmdGroup g, Job *jobs, int *job_count, int *next_job_id, char* dir
 
             if (at->infile) {
                 int fd = open(at->infile, O_RDONLY);
-                if (fd < 0) { perror("No such file or directory"); exit(1); }
+                if (fd < 0) { perror("No such file or directory!"); exit(1); }
                 dup2(fd, STDIN_FILENO);
                 close(fd);
             }
@@ -42,8 +42,8 @@ void do_in_bg(CmdGroup g, Job *jobs, int *job_count, int *next_job_id, char* dir
                 else if (strcmp(at->argv[0], "reveal") == 0) {
                     int a = 0, l = 0;
                     char* pathname = malloc(1024);
-                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
-                    handle_reveal(pathname, a, l);
+                    assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
+                    handle_reveal(pathname, a, l, prev_dir_reveal);
                     free(pathname);
                     exit(0);
                 }

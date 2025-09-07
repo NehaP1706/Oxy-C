@@ -14,9 +14,9 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                 int a = 0, l=0;
                 char* pathname = (char*) malloc (sizeof(char)*1024);
 
-                assign_pathname(pathname, at, &a, &l, dir_name, shell_home);
+                assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
-                handle_reveal(pathname, a, l);              
+                handle_reveal(pathname, a, l, prev_dir_reveal);              
             }
             else if (log_enabled && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
                 printf("\n");
@@ -91,17 +91,17 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
 
                 if (rc == 0) {
                 // child
-                    fg_pid = getpid();
+                    *fg_pid = getpid();
                     setpgid(getpid(), getpid());
                 
                     signal(SIGINT, sigint_handler);
                     signal(SIGTSTP, sigtstp_handler);
 
                     execvp(at->argv[0], at->argv);
-                    perror("execvp");
+                    perror("Command not found!\n");
                     exit(1);
                 } else {
-                    fg_pid = rc;
+                    *fg_pid = rc;
                     setpgid(rc, rc);
 
                     signal(SIGINT, sigint_handler);
@@ -112,7 +112,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
 
                     signal(SIGINT, SIG_IGN);
                     signal(SIGTSTP, SIG_IGN);
-                    fg_pid = -1;                        
+                    *fg_pid = -1;                        
                 }
             }
             else
