@@ -180,7 +180,8 @@ int main(int argc, char **argv) {
 
                 // Truncate the new line character to reduce confusion
                 int n = strlen(line);
-                if (line[n-1] == '\0')
+                //printf("%d\n", n);
+                if (n==6 && line[n-1] == '\n')
                 {
                     line[n-1]='\0';
                     n--;

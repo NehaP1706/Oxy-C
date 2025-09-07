@@ -4,17 +4,26 @@
 
 Token tokens[MAXTOK];
 
+pid_t shell_pgid;
+
+int fg_pid = -1;
+Job jobs[64];
+int job_count = 0;
+int next_job_id = 1;
+char fg_cmdline[1024];
+pid_t shell_pgid;
+
 int main()
 {
+    //install_handlers();
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+
+    bool log_enabled = true;
+
     char user[1024];
     char systemName[1024];
     char cwd[1024];
-
-    Job jobs[64];
-    int job_count = 0;
-    int next_job_id = 1;
-
-    ////////////// LLM Generated Code Begins ///////////////
 
     strcpy(user, getenv("USER"));
     
@@ -26,8 +35,6 @@ int main()
 
     //printf("USER: %s\n", user);
     //printf("SYSTEMNAME: %s\n", systemName);
-
-    ////////////// LLM Generated Code Ends ///////////////
 
     char* shell_home = getcwd(cwd, 1024);
     char* dir_name = make_init_dir_name(shell_home);
@@ -51,7 +58,10 @@ int main()
 
     fclose(fptr);
 
-    test_state(&start, &count, logs);
+    //test_state(&start, &count, logs);
+
+    shell_pgid = getpid();
+    printf("SHELL PGID: %d\n", shell_pgid);
 
     while (1)
     {   
@@ -64,7 +74,12 @@ int main()
         free(display);
 
         char* input = malloc(1024);
-        scanf("%1023[^\n]", input);
+        int ret = scanf("%1023[^\n]", input);
+
+        if (ret == EOF)
+        {
+            handle_eof();
+        }
 
         if (strcmp(input, "STOP") == 0)
         {
@@ -79,13 +94,13 @@ int main()
         int ntok = 0;
 
         tokenize(input, tokens, &ntok);
-        char cmds[4097] = "";
+        //char cmds[4097] = "";
 
-        inspect_tokens(tokens, &ntok, cmds, 4097);
+        //inspect_tokens(tokens, &ntok, cmds, 4097);
 
         add_log(input, logs, &start, &count); 
 
-        test_state(&start, &count, logs);
+        //test_state(&start, &count, logs);
 
         ShellCmd cmd = parse_shell_cmd(tokens, &pos, &parse_error);
 
@@ -162,7 +177,7 @@ int main()
                                 int idx = ((count - start)%15 +(num - 1)%15)%15;
                                 printf("IDX: %d\n", idx);
 
-                                execute_fn(logs[idx], tokens, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home);
+                                execute_fn(logs[idx], tokens, &count, &start, logs, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, &fg_pid);
                             }
                         }
                     }
@@ -199,25 +214,43 @@ int main()
                         }
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
+                        printf("I'M HERE!!\n");
                         int rc = fork();
+                        fg_pid = rc;
+
+                        char fg_cmdline[1024];
+                        snprintf(fg_cmdline, sizeof(fg_cmdline), "%s", input);
 
                         if (rc == 0) {
                         // child
-                            setpgid(0, 0);  // new process group
+                            fg_pid = getpid();
+                            setpgid(getpid(), getpid());
+                            
+                            signal(SIGINT, sigint_handler);
+                            signal(SIGTSTP, sigtstp_handler);
+
                             execvp(at->argv[0], at->argv);
                             perror("execvp");
                             exit(1);
                         } else {
-                            // parent
-                            fg_pid = rc;   // mark foreground job
-                            waitpid(rc, NULL, WUNTRACED); // wait (stop/exit)
-                            fg_pid = -1;   // reset after it’s done
+                            fg_pid = rc;
+                            setpgid(rc, rc);
+
+                            signal(SIGINT, sigint_handler);
+                            signal(SIGTSTP, sigtstp_handler);
+
+                            int status;
+                            waitpid(rc, &status, WUNTRACED);  // wait for exit or stop
+
+                            signal(SIGINT, SIG_IGN);
+                            signal(SIGTSTP, SIG_IGN);
+                            fg_pid = -1;                        
                         }
                     }
                     else
                     {
                         printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
-                        execute_command(tokens, at, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                        execute_command(tokens, at, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                 }
                 else
@@ -225,12 +258,12 @@ int main()
                     if (cmd.types[0] == T_SEMI)
                     {
                         printf("SEQUENTIAL\n");
-                        execute_sequential(&cmd, tokens, g, &count, &start, logs, cwd, dir_name, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                        execute_sequential(&cmd, tokens, g, &count, &start, logs, cwd, dir_name, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                     else
                     {
                         printf("PIPELINING\n");
-                        execute_pipeline(tokens, &cmd, g, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id);
+                        execute_pipeline(tokens, &cmd, g, &count, &start, logs, dir_name, cwd, shell_home, &parse_error, jobs, &job_count, &next_job_id, &fg_pid, log_enabled);
                     }
                 }
 

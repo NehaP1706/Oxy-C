@@ -1,3 +1,6 @@
+#define _XOPEN_SOURCE 700
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -9,8 +12,7 @@
 #include <sys/select.h>
 #include <fcntl.h>
 #include <signal.h>
-
-////////////// LLM Generated Code Begins ///////////////
+#include <stdbool.h>
 
 typedef enum {
     T_EOF = 0,
@@ -73,17 +75,23 @@ void update_logs(int* start, int* count, char logs[15][4097], char* shell_home);
 void inspect_tokens(Token tokens[1024], int* ntok, char cmds[4097], int size);
 void assign_pathname(char* pathname, Atomic* at, int* a, int* l, char* dir_name, char* shell_home);
 int get_num(char* input);
-void execute_fn(char* input, Token* tokens, Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home);
-void execute_command(Token* tokens, Atomic* at, int* count, int* start, char logs[15][4097], char* dir_name, char*cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
-void execute_command_no_log(Atomic* at, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
-void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* start, char logs[15][4097], char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
-void execute_pipeline_no_log(ShellCmd *cmd, int g, char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
-void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* start, char logs[15][4097], char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
-void execute_sequential_no_log(ShellCmd *cmd, int g, char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id);
+void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15][4097], Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home, int* fg_pid);
+void execute_command(Token* tokens, Atomic* at, int* count, int* start, char logs[15][4097], char* dir_name, char*cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
+void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* start, char logs[15][4097], char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
+void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* start, char logs[15][4097], char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
 void do_in_bg(CmdGroup g, Job *jobs, int *job_count, int *next_job_id, char* dir_name, char* cwd, char* shell_home);
 void check_jobs(Job *jobs, int *job_count);
+void sigint_handler(int sig);
+void sigtstp_handler(int sig);
+void install_handlers();
+void handle_eof();
 
-////////////// LLM Generated Code Ends ///////////////
+extern int fg_pid;
+extern Job jobs[64];
+extern int job_count;
+extern int next_job_id;
+extern char fg_cmdline[1024];
+extern pid_t shell_pgid;
 
 char* make_init_dir_name(char* shell_home);
 char* make_init_display(char* user, char* systemName, char* dir_name);
