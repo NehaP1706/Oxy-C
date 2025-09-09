@@ -35,8 +35,12 @@ typedef struct {
 
 typedef struct {
     char **argv;       
-    char *infile;      
-    char *outfile;     
+    char **infiles; 
+    char* infile; 
+    int ninfiles;    
+    char **outfiles; 
+    int noutfiles;
+    char* outfile;    
     int append;        
 } Atomic;
 

@@ -105,8 +105,8 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     }
                     else
                     {
-                        int idx = ((num - 1)%15)%15;
-                        printf("EXECUTING LINE: %d", idx);
+                        int idx = (count - start) - ((num - 1)%15)%15 - 1;
+                        //printf("EXECUTING LINE: %d", idx);
                         fflush(stdout);
 
                         execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
@@ -151,14 +151,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
             }
             else if (at->argv && at->argv[0])
             {
-                //printf("CALLING EXEC 2\n");
-                execvp(at->argv[0], at->argv);
-                printf("Command not found\n");
-                exit(1);
-            }
-            else 
-            {
-                //printf("CALLING EXEC 1\n");
+                printf("CALLING EXEC 2\n");
                 execvp(at->argv[0], at->argv);
                 printf("Command not found\n");
                 exit(1);

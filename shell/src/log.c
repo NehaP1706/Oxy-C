@@ -90,12 +90,12 @@ void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][40
     int parse_error = 0;
     int ntok = 0;
 
-    printf("GOTTA TOKENIZE: %s\n", input);
+    //printf("GOTTA TOKENIZE: %s\n", input);
 
     tokenize(input, tokens, &ntok);
-    char cmds[4097] = "";
+    //char cmds[4097] = "";
 
-    inspect_tokens(tokens, &ntok, cmds, 4097);
+    //inspect_tokens(tokens, &ntok, cmds, 4097);
 
     ShellCmd cmd = parse_shell_cmd(tokens, &pos, &parse_error);
 
@@ -148,7 +148,7 @@ void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][40
                         printf("Sent signal %d to process with pid %d\n", sig, pid);
                         }
                     } else {
-                        printf("Usage: ping <pid> <signal_number>\n");
+                        printf("Invalid syntax!\n");
                     }
                 }
                 else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {

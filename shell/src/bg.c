@@ -59,7 +59,7 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
                             }
                             else
                             {
-                                int idx = ((num - 1)%15)%15;
+                                int idx = (*count - *start) - ((num - 1)%15)%15 - 1;
                                 //printf("IDX: %d\n", idx);
 
                                 execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);

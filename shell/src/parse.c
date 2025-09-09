@@ -19,8 +19,14 @@ void syntax_error(const char *msg, int* parse_error) {
 /* --- atomic: name (name | redirection)* --- */
 Atomic parse_atomic(Token* tokens, int* pos, int* parse_error) {
     Atomic a = {0};
-    a.argv = malloc(sizeof(char*) * 32); /* keep as before */
+    a.argv = malloc(sizeof(char*) * 32); // command arguments
     int argc = 0;
+
+    a.ninfiles = 0;   // count of input files
+    a.noutfiles = 0;  // count of output files
+    a.append = 0;     // append flag for last output
+    a.infiles = malloc(sizeof(char*) * 8);   // store multiple < files
+    a.outfiles = malloc(sizeof(char*) * 8);  // store multiple > files
 
     if (peek(tokens, pos)->type != T_NAME) {
         syntax_error("expected command name", parse_error);
@@ -34,17 +40,36 @@ Atomic parse_atomic(Token* tokens, int* pos, int* parse_error) {
 
         if (t == T_NAME) {
             a.argv[argc++] = strdup(get(tokens, pos)->text);
-        } else if (t == T_LT) {
+        } 
+        else if (t == T_LT) {
             get(tokens, pos);
-            if (peek(tokens, pos)->type != T_NAME) { syntax_error("expected infile", parse_error); return a; }
-            a.infile = strdup(get(tokens, pos)->text);
-        } else if (t == T_GT || t == T_GT_GT) {
-            int append = (t == T_GT_GT);
+            if (peek(tokens, pos)->type != T_NAME) { 
+                syntax_error("expected infile", parse_error); 
+                return a; 
+            }
+            if (a.ninfiles < 8) {
+                a.infiles[a.ninfiles++] = strdup(get(tokens, pos)->text);
+                a.infile = a.infiles[a.ninfiles-1]; // last one for backward compatibility
+            } else {
+                fprintf(stderr, "Too many input files\n");
+            }
+        } 
+        else if (t == T_GT || t == T_GT_GT) {
+            int append_flag = (t == T_GT_GT);
             get(tokens, pos);
-            if (peek(tokens, pos)->type != T_NAME) { syntax_error("expected outfile", parse_error); return a; }
-            a.outfile = strdup(get(tokens, pos)->text);
-            a.append = append;
-        } else {
+            if (peek(tokens, pos)->type != T_NAME) { 
+                syntax_error("expected outfile", parse_error); 
+                return a; 
+            }
+            if (a.noutfiles < 8) {
+                a.outfiles[a.noutfiles++] = strdup(get(tokens, pos)->text);
+                a.outfile = a.outfiles[a.noutfiles-1]; // last one for backward compatibility
+                a.append = append_flag;                 // last append flag
+            } else {
+                fprintf(stderr, "Too many output files\n");
+            }
+        } 
+        else {
             break;
         }
     }

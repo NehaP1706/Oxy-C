@@ -154,7 +154,7 @@ int main()
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
                         //printf("\n");
 
-                        printf("START: %d, COUNT: %d\n", start, count);
+                        //printf("START: %d, COUNT: %d\n", start, count);
                         //int num = get_num(at->argv[2]);
                         //printf("NUM: %d\n", num);
 
@@ -181,7 +181,7 @@ int main()
                             }
                             else
                             {
-                                int idx = ((num - 1)%15)%15;
+                                int idx = (count - start) - ((num - 1)%15)%15 - 1;
                                 //printf("IDX: %d, COMMAND: %s\n", idx, logs[idx]);
 
                                 execute_fn(idx, tokens, &count, &start, logs, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, &fg_pid);

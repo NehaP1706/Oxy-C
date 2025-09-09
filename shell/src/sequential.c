@@ -45,7 +45,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                     }
                     else
                     {
-                        int idx = ((num - 1)%15)%15;
+                        int idx = (*count - *start) - ((num - 1)%15)%15 - 1;
                         //printf("EXECUTING LINE: %d", idx);
                         fflush(stdout);
 
