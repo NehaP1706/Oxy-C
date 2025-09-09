@@ -224,14 +224,14 @@ int main()
                             jobs[i].state == RUNNING ? "Running" : "Stopped");
                         }
                     }
-                    // else if (strcmp(at->argv[0], "fg") == 0) {
-                    //     int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
-                    //     do_fg(jid, jobs, &job_count, &fg_pid);
-                    // }
-                    // else if (strcmp(at->argv[0], "bg") == 0) {
-                    //     int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
-                    //     do_bg(jid, jobs, &job_count);
-                    // }
+                    else if (strcmp(at->argv[0], "fg") == 0) {
+                        int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                        do_fg(jid, jobs, &job_count, &fg_pid);
+                    }
+                    else if (strcmp(at->argv[0], "bg") == 0) {
+                        int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                        do_bg(jid, jobs, &job_count);
+                    }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
                         //printf("I'M HERE!!\n");
                         int rc = fork();

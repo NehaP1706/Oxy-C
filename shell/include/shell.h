@@ -57,7 +57,6 @@ typedef struct {
 typedef struct {
     int job_id;
     pid_t pid;
-    pid_t pgid;
     char cmdline[1024]; 
     JobState state;
 } Job;
@@ -87,10 +86,11 @@ void sigint_handler(int sig);
 void sigtstp_handler(int sig);
 void install_handlers();
 void handle_eof();
-//void do_fg(int job_id, Job *jobs, int *job_count, pid_t *fg_pid);
-//void do_bg(int job_id, Job *jobs, int *job_count);
+void do_fg(int job_id, Job *jobs, int *job_count, pid_t *fg_pid);
+void do_bg(int job_id, Job *jobs, int *job_count);
 void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][4097], Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home, int* fg_pid);
 char* get_in(int idx);
+void remove_job(Job jobs[], int *job_count, int index);
 
 extern int fg_pid;
 extern Job jobs[64];

@@ -185,3 +185,80 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
         fflush(stdout);
     }
 }
+
+void do_fg(int jid, Job* jobs, int *job_count, pid_t *fg_pid) {
+    int i;
+    Job *job = NULL;
+
+    // If no job id is provided, pick the most recent background/stopped job
+    if (jid == -1 && *job_count > 0) {
+        job = &jobs[*job_count - 1];
+    } else {
+        for (i = 0; i < *job_count; i++) {
+            if (jobs[i].job_id == jid) {
+                job = &jobs[i];
+                break;
+            }
+        }
+    }
+
+    if (!job) {
+        printf("No such job\n");
+        return;
+    }
+
+    printf("%s\n", job->cmdline);
+
+    if (job->state == STOPPED) {
+        kill(job->pid, SIGCONT);  // Resume the job
+        job->state = RUNNING;
+    }
+
+    *fg_pid = job->pid;
+
+    // Wait for job to finish or stop
+    int status;
+    waitpid(job->pid, &status, WUNTRACED);
+
+    // If the job stopped again, update its state
+    if (WIFSTOPPED(status)) {
+        job->state = STOPPED;
+    } else {
+        remove_job(jobs, job_count, i);
+        // Job finished, remove from job list (optional)
+        *fg_pid = -1;
+        // could shift jobs array here if you want to remove finished job
+    }
+}
+
+void do_bg(int jid, Job* jobs, int *job_count) {
+    int i;
+    Job *job = NULL;
+
+    if (jid == -1 && *job_count > 0) {
+        job = &jobs[*job_count - 1];
+    } else {
+        for (i = 0; i < *job_count; i++) {
+            if (jobs[i].job_id == jid) {
+                job = &jobs[i];
+                break;
+            }
+        }
+    }
+
+    if (!job) {
+        printf("No such job\n");
+        return;
+    }
+
+    if (job->state == RUNNING) {
+        printf("Job already running\n");
+        return;
+    }
+
+    // Resume job in background
+    kill(job->pid, SIGCONT);
+    job->state = RUNNING;
+
+    printf("[%d] %s &\n", job->job_id, job->cmdline);
+}

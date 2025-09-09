@@ -23,6 +23,13 @@ int get_num(char* input)
 	return num;
 }
 
+void remove_job(Job jobs[], int *job_count, int index) {
+    for (int i = index; i < *job_count - 1; i++) {
+        jobs[i] = jobs[i + 1];
+    }
+    (*job_count)--;
+}
+
 void check_jobs(Job *jobs, int *job_count) {
     int status;
     pid_t result;
