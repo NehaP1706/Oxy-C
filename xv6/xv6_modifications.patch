@@ -1,0 +1,783 @@
+From ad0d564d1cec219f6c360b5afd8c0c71d5020aeb Mon Sep 17 00:00:00 2001
+From: Layla1706 <nehaprabhup17@gmail.com>
+Date: Sat, 6 Sep 2025 15:09:45 +0530
+Subject: [PATCH 1/3] Readcount updated.
+
+---
+ kernel/readcount.c | 13 +++++++++++++
+ kernel/readcount.h | 11 +++++++++++
+ user/readcount.c   | 25 +++++++++++++++++++++++++
+ 3 files changed, 49 insertions(+)
+ create mode 100644 kernel/readcount.c
+ create mode 100644 kernel/readcount.h
+ create mode 100644 user/readcount.c
+
+diff --git a/kernel/readcount.c b/kernel/readcount.c
+new file mode 100644
+index 0000000..e94cee1
+--- /dev/null
++++ b/kernel/readcount.c
+@@ -0,0 +1,13 @@
++// in kernel/readcount.c (create)
++#include "types.h"
++#include "defs.h"
++#include "readcount.h"
++
++uint64 global_read_bytes = 0;
++
++void
++add_read_bytes(unsigned int n)
++{
++  // natural wrap-around due to unsigned long long overflow
++  global_read_bytes += (uint64)n;
++}
+diff --git a/kernel/readcount.h b/kernel/readcount.h
+new file mode 100644
+index 0000000..ad83d85
+--- /dev/null
++++ b/kernel/readcount.h
+@@ -0,0 +1,11 @@
++// in kernel/readcount.h (create)
++#ifndef READCOUNT_H
++#define READCOUNT_H
++
++#include "types.h"
++#include "defs.h"
++
++extern uint64 global_read_bytes; // wrap at overflow (natural for unsigned)
++void add_read_bytes(unsigned int n); // called by sys_read wrapper
++
++#endif
+diff --git a/user/readcount.c b/user/readcount.c
+new file mode 100644
+index 0000000..af9a889
+--- /dev/null
++++ b/user/readcount.c
+@@ -0,0 +1,25 @@
++#include "kernel/types.h"
++#include "kernel/stat.h"
++#include "user/user.h"
++
++int main(int argc, char *argv[]) {
++  if (argc < 2) {
++    printf("Usage: readcount <filename>\n");
++    exit(1);
++  }
++
++  printf("Initial: %d\n", getreadcount());
++
++  int fd = open(argv[1], 0);
++  if (fd < 0) {
++    printf("Cannot open %s\n", argv[1]);
++    exit(1);
++  }
++
++  char buf[100];
++  read(fd, buf, sizeof(buf));
++  close(fd);
++
++  printf("After: %d\n", getreadcount());
++  exit(0);
++}
+-- 
+2.43.0
+
+
+From 95ad20998013b50cc4b11d3f138c776a0f9bbd07 Mon Sep 17 00:00:00 2001
+From: Layla1706 <nehaprabhup17@gmail.com>
+Date: Sat, 6 Sep 2025 15:18:57 +0530
+Subject: [PATCH 2/3] Minor changes.
+
+---
+ kernel/defs.h    |   1 +
+ kernel/fs.h      |   4 +-
+ kernel/proc.c    | 137 +++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/proc.h    |  15 ++++++
+ kernel/syscall.c |   2 +
+ kernel/syscall.h |   1 +
+ kernel/sysfile.c |  10 +++-
+ kernel/sysproc.c |   7 +++
+ kernel/trap.c    |  44 +++++++++++++--
+ user/ls.c        |   1 -
+ user/ulib.c      |   5 +-
+ user/user.h      |   1 +
+ user/usys.pl     |   2 +
+ 13 files changed, 217 insertions(+), 13 deletions(-)
+
+diff --git a/kernel/defs.h b/kernel/defs.h
+index 122d9ca..fdec535 100644
+--- a/kernel/defs.h
++++ b/kernel/defs.h
+@@ -89,6 +89,7 @@ int             kkill(int);
+ int             killed(struct proc*);
+ void            setkilled(struct proc*);
+ struct cpu*     mycpu(void);
++struct cpu*     getmycpu(void);
+ struct proc*    myproc();
+ void            procinit(void);
+ void            scheduler(void) __attribute__((noreturn));
+diff --git a/kernel/fs.h b/kernel/fs.h
+index 18d0dd0..139dcc9 100644
+--- a/kernel/fs.h
++++ b/kernel/fs.h
+@@ -53,10 +53,8 @@ struct dinode {
+ // Directory is a file containing a sequence of dirent structures.
+ #define DIRSIZ 14
+ 
+-// The name field may have DIRSIZ characters and not end in a NUL
+-// character.
+ struct dirent {
+   ushort inum;
+-  char name[DIRSIZ] __attribute__((nonstring));
++  char name[DIRSIZ];
+ };
+ 
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 9d6cf3f..ff6f856 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -26,6 +26,131 @@ extern char trampoline[]; // trampoline.S
+ // must be acquired before any p->lock.
+ struct spinlock wait_lock;
+ 
++#ifdef SCHEDULER_FCFS
++void
++scheduler(void)
++{
++  struct proc *p;
++  struct proc *chosen;
++  struct cpu *c = mycpu();
++
++  c->proc = 0;
++  for(;;){
++    intr_on(); // enable interrupts
++
++    chosen = 0;
++    uint64 earliest = (uint64)-1;
++
++    // find runnable process with earliest creation_time
++    for(p = proc; p < &proc[NPROC]; p++){
++      acquire(&p->lock);
++      if(p->state == RUNNABLE){
++        if(p->creation_time < earliest){
++          if(chosen) release(&chosen->lock);
++          earliest = p->creation_time;
++          chosen = p;
++          continue;
++        }
++      }
++      release(&p->lock);
++    }
++
++    if(chosen){
++      chosen->state = RUNNING;
++      c->proc = chosen;
++
++      printf("[FCFS] Scheduling PID %d created at %d\n", 
++             chosen->pid, chosen->creation_time);
++
++      swtch(&c->context, &chosen->context);
++
++      c->proc = 0;
++      release(&chosen->lock);
++    }
++  }
++}
++#endif
++
++#ifdef SCHEDULER_CFS
++
++#define TARGET_LATENCY 48
++#define MIN_SLICE 3
++
++void
++scheduler(void)
++{
++  struct proc *p;
++  struct cpu *c = mycpu();
++  c->proc = 0;
++
++  for(;;){
++    sti();
++
++    acquire(&ptable.lock);
++
++    // Count runnable procs
++    int runnable = 0;
++    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p->state == RUNNABLE) runnable++;
++    }
++
++    if(runnable == 0){
++      release(&ptable.lock);
++      continue;
++    }
++
++    int time_slice = TARGET_LATENCY / runnable;
++    if(time_slice < MIN_SLICE) time_slice = MIN_SLICE;
++
++    // Logging: print all runnable pids and vruntime
++    cprintf("[Scheduler Tick]\n");
++    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p->state == RUNNABLE){
++        cprintf("PID: %d | vRuntime: %lld\n", p->pid, p->vruntime);
++      }
++    }
++
++    // Find the runnable process with smallest vruntime
++    struct proc *best = 0;
++    uint64_t min_vruntime = (uint64_t)-1;
++    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
++      if(p->state != RUNNABLE) continue;
++      if(p->vruntime < min_vruntime){
++        min_vruntime = p->vruntime;
++        best = p;
++      }
++    }
++
++    if(best){
++      cprintf("--> Scheduling PID %d (lowest vRuntime)\n", best->pid);
++      // set per-process run_ticks allowed
++      best->run_ticks = 0;
++      best->state = RUNNING;
++      c->proc = best;
++      switchuvm(best);
++
++      // run until preempted (by timer setting p->state back to RUNNABLE) or sleeps/exits
++      swtch(&c->scheduler, best->context);
++      switchkvm();
++
++      // On return, update vruntime using ticks used by process in this run
++      // best->run_ticks holds number of ticks it actually ran in this slice (set by timer/trap)
++      uint64_t delta = best->run_ticks;
++      if(delta > 0){
++        // vruntime += delta * (1024 / weight)
++        // To avoid fraction, compute: delta * 1024 / weight
++        uint64_t incr = (delta * 1024) / (best->weight ? best->weight : 1);
++        best->vruntime += incr;
++      }
++
++      c->proc = 0;
++    }
++
++    release(&ptable.lock);
++  }
++}
++#endif
++
+ // Allocate a page for each process's kernel stack.
+ // Map it high in memory, followed by an invalid
+ // guard page.
+@@ -125,6 +250,18 @@ found:
+   p->pid = allocpid();
+   p->state = USED;
+ 
++  #ifdef SCHEDULER_FCFS
++    p->creation_time = ticks; // ticks is the global tick counter
++  #endif
++
++  #ifdef SCHEDULER_CFS
++    p->nice = 0;
++    p->weight = 1024;   // nice 0 -> weight 1024
++    p->vruntime = 0;
++    p->run_ticks = 0;
++    p->allowed_slice = 3; // default min slice; will be updated on scheduling
++  #endif
++
+   // Allocate a trapframe page.
+   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+     freeproc(p);
+diff --git a/kernel/proc.h b/kernel/proc.h
+index d021857..af7601b 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -1,4 +1,7 @@
+ // Saved registers for kernel context switches.
++// Add includes at top if needed
++#include "types.h"
++
+ struct context {
+   uint64 ra;
+   uint64 sp;
+@@ -104,4 +107,16 @@ struct proc {
+   struct file *ofile[NOFILE];  // Open files
+   struct inode *cwd;           // Current directory
+   char name[16];               // Process name (debugging)
++
++  #ifdef SCHEDULER_FCFS 
++    uint creation_time;
++  #endif
++
++  #ifdef SCHEDULER_CFS
++    int nice; 
++    int weight;
++    uint64 vruntime;
++    int run_ticks;
++    int allowed_slice;
++  #endif
+ };
+diff --git a/kernel/syscall.c b/kernel/syscall.c
+index 076d965..b694c91 100644
+--- a/kernel/syscall.c
++++ b/kernel/syscall.c
+@@ -101,6 +101,7 @@ extern uint64 sys_unlink(void);
+ extern uint64 sys_link(void);
+ extern uint64 sys_mkdir(void);
+ extern uint64 sys_close(void);
++extern uint64 sys_getreadcount(void);
+ 
+ // An array mapping syscall numbers from syscall.h
+ // to the function that handles the system call.
+@@ -126,6 +127,7 @@ static uint64 (*syscalls[])(void) = {
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_getreadcount] sys_getreadcount,
+ };
+ 
+ void
+diff --git a/kernel/syscall.h b/kernel/syscall.h
+index 3dd926d..986aadd 100644
+--- a/kernel/syscall.h
++++ b/kernel/syscall.h
+@@ -20,3 +20,4 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_getreadcount 23
+diff --git a/kernel/sysfile.c b/kernel/sysfile.c
+index d8234ce..46e25a4 100644
+--- a/kernel/sysfile.c
++++ b/kernel/sysfile.c
+@@ -14,8 +14,11 @@
+ #include "fs.h"
+ #include "sleeplock.h"
+ #include "file.h"
++#include "readcount.h"
+ #include "fcntl.h"
+ 
++uint64 total_read_bytes = 0;
++
+ // Fetch the nth word-sized system call argument as a file descriptor
+ // and return both the descriptor and the corresponding struct file.
+ static int
+@@ -76,7 +79,12 @@ sys_read(void)
+   argint(2, &n);
+   if(argfd(0, 0, &f) < 0)
+     return -1;
+-  return fileread(f, p, n);
++
++  int ret = fileread(f, p, n); 
++  if(ret > 0){
++    add_read_bytes((unsigned int)ret);
++  }
++  return ret;
+ }
+ 
+ uint64
+diff --git a/kernel/sysproc.c b/kernel/sysproc.c
+index 3044d00..e754cc7 100644
+--- a/kernel/sysproc.c
++++ b/kernel/sysproc.c
+@@ -6,6 +6,13 @@
+ #include "spinlock.h"
+ #include "proc.h"
+ #include "vm.h"
++#include "readcount.h"
++
++uint64
++sys_getreadcount(void)
++{
++  return global_read_bytes;
++}
+ 
+ uint64
+ sys_exit(void)
+diff --git a/kernel/trap.c b/kernel/trap.c
+index a41cd69..bcd4f48 100644
+--- a/kernel/trap.c
++++ b/kernel/trap.c
+@@ -44,7 +44,7 @@ usertrap(void)
+ 
+   // send interrupts and exceptions to kerneltrap(),
+   // since we're now in the kernel.
+-  w_stvec((uint64)kernelvec);  //DOC: kernelvec
++  w_stvec((uint64)kernelvec);
+ 
+   struct proc *p = myproc();
+   
+@@ -81,8 +81,26 @@ usertrap(void)
+     kexit(-1);
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2)
+-    yield();
++  #if defined(SCHEDULER_CFS)
++    if (which_dev == 2) {
++      struct proc *p = myproc();
++      if (p) {
++        // increment the number of ticks this process has run in its current slice
++        p->run_ticks++;
++        // only yield (preempt) when it has used up its allowed slice
++        if (p->run_ticks >= p->allowed_slice) {
++          yield();
++        }
++      }
++    }
++  #elif defined(SCHEDULER_FCFS)
++    // FCFS: do NOT preempt on timer interrupts; let running process run until it blocks/exits.
++    // (do nothing here)
++  #else
++    // default (Round-Robin): preempt on every timer interrupt.
++    if (which_dev == 2)
++      yield();
++  #endif
+ 
+   prepare_return();
+ 
+@@ -152,8 +170,24 @@ kerneltrap()
+   }
+ 
+   // give up the CPU if this is a timer interrupt.
+-  if(which_dev == 2 && myproc() != 0)
+-    yield();
++    // give up the CPU if this is a timer interrupt.
++  #if defined(SCHEDULER_CFS)
++    if (which_dev == 2 && myproc() != 0) {
++      struct proc *p = myproc();
++      if (p) {
++        p->run_ticks++;
++        if (p->run_ticks >= p->allowed_slice) {
++          yield();
++        }
++      }
++    }
++  #elif defined(SCHEDULER_FCFS)
++    // FCFS: do not preempt on timer
++  #else
++    // default round-robin
++    if (which_dev == 2 && myproc() != 0)
++      yield();
++  #endif
+ 
+   // the yield() may have caused some traps to occur,
+   // so restore trap registers for use by kernelvec.S's sepc instruction.
+diff --git a/user/ls.c b/user/ls.c
+index da78748..39ab074 100644
+--- a/user/ls.c
++++ b/user/ls.c
+@@ -20,7 +20,6 @@ fmtname(char *path)
+     return p;
+   memmove(buf, p, strlen(p));
+   memset(buf+strlen(p), ' ', DIRSIZ-strlen(p));
+-  buf[sizeof(buf)-1] = '\0';
+   return buf;
+ }
+ 
+diff --git a/user/ulib.c b/user/ulib.c
+index 6bc490e..a2f5a20 100644
+--- a/user/ulib.c
++++ b/user/ulib.c
+@@ -11,10 +11,9 @@
+ void
+ start()
+ {
+-  int r;
+   extern int main();
+-  r = main();
+-  exit(r);
++  main();
++  exit(0);
+ }
+ 
+ char*
+diff --git a/user/user.h b/user/user.h
+index ac84de9..38543f4 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -24,6 +24,7 @@ int getpid(void);
+ char* sys_sbrk(int,int);
+ int pause(int);
+ int uptime(void);
++int getreadcount(void);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+diff --git a/user/usys.pl b/user/usys.pl
+index c5d4c3a..25f3457 100755
+--- a/user/usys.pl
++++ b/user/usys.pl
+@@ -42,3 +42,5 @@ entry("getpid");
+ entry("sbrk");
+ entry("pause");
+ entry("uptime");
++entry("getreadcount");
++
+-- 
+2.43.0
+
+
+From 040f8627f8454ef6d3de4333821c8fe498833158 Mon Sep 17 00:00:00 2001
+From: Layla1706 <nehaprabhup17@gmail.com>
+Date: Sun, 7 Sep 2025 22:18:34 +0530
+Subject: [PATCH 3/3] Added schedulers and readcount()
+
+---
+ Makefile           | 13 ++++++++++++-
+ kernel/proc.c      | 19 ++++++++++++++++++-
+ kernel/proc.h      |  9 ++++++++-
+ kernel/readcount.c |  1 -
+ kernel/readcount.h |  2 +-
+ kernel/syscall.h   |  2 +-
+ kernel/sysfile.c   |  3 +--
+ kernel/trap.c      | 20 ++++++++------------
+ user/readcount.c   |  4 ++--
+ user/user.h        |  2 +-
+ 10 files changed, 52 insertions(+), 23 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 2d5f9e4..fb5255c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,6 +1,15 @@
+ K=kernel
+ U=user
+ 
++ifdef SCHEDULER
++  ifeq ($(SCHEDULER),CFS)
++    CFLAGS += -DSCHEDULER_CFS
++  endif
++  ifeq ($(SCHEDULER),FCFS)
++    CFLAGS += -DSCHEDULER_FCFS
++  endif
++endif
++
+ OBJS = \
+   $K/entry.o \
+   $K/start.o \
+@@ -28,7 +37,8 @@ OBJS = \
+   $K/sysfile.o \
+   $K/kernelvec.o \
+   $K/plic.o \
+-  $K/virtio_disk.o
++  $K/virtio_disk.o \
++  $K/readcount.o 
+ 
+ # riscv64-unknown-elf- or riscv64-linux-gnu-
+ # perhaps in /opt/riscv/bin
+@@ -142,6 +152,7 @@ UPROGS=\
+ 	$U/_logstress\
+ 	$U/_forphan\
+ 	$U/_dorphan\
++	$U/_readcount\
+ 
+ fs.img: mkfs/mkfs README $(UPROGS)
+ 	mkfs/mkfs fs.img README $(UPROGS)
+diff --git a/kernel/proc.c b/kernel/proc.c
+index ff6f856..42d562a 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -5,6 +5,7 @@
+ #include "spinlock.h"
+ #include "proc.h"
+ #include "defs.h"
++#include <stdint.h> 
+ 
+ struct cpu cpus[NCPU];
+ 
+@@ -26,6 +27,11 @@ extern char trampoline[]; // trampoline.S
+ // must be acquired before any p->lock.
+ struct spinlock wait_lock;
+ 
++// Compute weight from nice value
++uint64 compute_weight(int nice) {
++    return nice_to_weight[nice];
++}
++
+ #ifdef SCHEDULER_FCFS
+ void
+ scheduler(void)
+@@ -811,14 +817,25 @@ procdump(void)
+   char *state;
+ 
+   printf("\n");
++  printf("PID\tState\tvruntime\tNice\tWeight\n");
++  printf("-----------------------------------\n");
+   for(p = proc; p < &proc[NPROC]; p++){
+     if(p->state == UNUSED)
++    {
+       continue;
++    }
+     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
++    {
+       state = states[p->state];
++    }
+     else
++    {
+       state = "???";
+-    printf("%d %s %s", p->pid, state, p->name);
++    }
++    printf("%s\n", state);
++    #ifdef SCHEDULER_CFS
++      printf("%d\t%d\t%lld\t%d\t%lld\n",p->pid, p->state, p->vruntime, p->nice, p->weight);
++    #endif
+     printf("\n");
+   }
+ }
+diff --git a/kernel/proc.h b/kernel/proc.h
+index af7601b..ac29fb3 100644
+--- a/kernel/proc.h
++++ b/kernel/proc.h
+@@ -82,6 +82,13 @@ struct trapframe {
+   /* 280 */ uint64 t6;
+ };
+ 
++static const uint64 nice_to_weight[40] = {
++    88761, 71755, 56483, 46273, 36291, 29154, 23254, 18705, 14949, 11916,
++    9548, 7620, 6100, 4904, 3906, 3121, 2501, 1991, 1586, 1277,
++    1024, 820, 655, 526, 423, 335, 272, 215, 172, 137,
++    110, 87, 70, 56, 45, 36, 29, 23, 18, 15
++};
++
+ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+ 
+ // Per-process state
+@@ -114,7 +121,7 @@ struct proc {
+ 
+   #ifdef SCHEDULER_CFS
+     int nice; 
+-    int weight;
++    uint64 weight;
+     uint64 vruntime;
+     int run_ticks;
+     int allowed_slice;
+diff --git a/kernel/readcount.c b/kernel/readcount.c
+index e94cee1..dcb1d54 100644
+--- a/kernel/readcount.c
++++ b/kernel/readcount.c
+@@ -1,6 +1,5 @@
+ // in kernel/readcount.c (create)
+ #include "types.h"
+-#include "defs.h"
+ #include "readcount.h"
+ 
+ uint64 global_read_bytes = 0;
+diff --git a/kernel/readcount.h b/kernel/readcount.h
+index ad83d85..3301bfc 100644
+--- a/kernel/readcount.h
++++ b/kernel/readcount.h
+@@ -3,9 +3,9 @@
+ #define READCOUNT_H
+ 
+ #include "types.h"
+-#include "defs.h"
+ 
+ extern uint64 global_read_bytes; // wrap at overflow (natural for unsigned)
+ void add_read_bytes(unsigned int n); // called by sys_read wrapper
+ 
+ #endif
++//here
+diff --git a/kernel/syscall.h b/kernel/syscall.h
+index 986aadd..0cf477a 100644
+--- a/kernel/syscall.h
++++ b/kernel/syscall.h
+@@ -20,4 +20,4 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
+-#define SYS_getreadcount 23
++#define SYS_getreadcount 22
+diff --git a/kernel/sysfile.c b/kernel/sysfile.c
+index 46e25a4..ebee30f 100644
+--- a/kernel/sysfile.c
++++ b/kernel/sysfile.c
+@@ -17,8 +17,6 @@
+ #include "readcount.h"
+ #include "fcntl.h"
+ 
+-uint64 total_read_bytes = 0;
+-
+ // Fetch the nth word-sized system call argument as a file descriptor
+ // and return both the descriptor and the corresponding struct file.
+ static int
+@@ -82,6 +80,7 @@ sys_read(void)
+ 
+   int ret = fileread(f, p, n); 
+   if(ret > 0){
++    //global_read_bytes = 0;
+     add_read_bytes((unsigned int)ret);
+   }
+   return ret;
+diff --git a/kernel/trap.c b/kernel/trap.c
+index bcd4f48..4e747ac 100644
+--- a/kernel/trap.c
++++ b/kernel/trap.c
+@@ -82,23 +82,19 @@ usertrap(void)
+ 
+   // give up the CPU if this is a timer interrupt.
+   #if defined(SCHEDULER_CFS)
+-    if (which_dev == 2) {
++    if (which_dev == 2) { // timer
+       struct proc *p = myproc();
+-      if (p) {
+-        // increment the number of ticks this process has run in its current slice
+-        p->run_ticks++;
+-        // only yield (preempt) when it has used up its allowed slice
+-        if (p->run_ticks >= p->allowed_slice) {
+-          yield();
+-        }
++      if(p && p->state == RUNNING){
++          p->run_ticks++;
++          if(p->run_ticks >= p->allowed_slice)
++              yield();
+       }
+     }
+   #elif defined(SCHEDULER_FCFS)
+-    // FCFS: do NOT preempt on timer interrupts; let running process run until it blocks/exits.
+-    // (do nothing here)
++  // do not preempt
+   #else
+-    // default (Round-Robin): preempt on every timer interrupt.
+-    if (which_dev == 2)
++  // RR: preempt every timer tick
++    if(which_dev == 2 && myproc() && myproc()->state == RUNNING)
+       yield();
+   #endif
+ 
+diff --git a/user/readcount.c b/user/readcount.c
+index af9a889..d55b556 100644
+--- a/user/readcount.c
++++ b/user/readcount.c
+@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
+     exit(1);
+   }
+ 
+-  printf("Initial: %d\n", getreadcount());
++  printf("Initial: %ld\n", getreadcount());
+ 
+   int fd = open(argv[1], 0);
+   if (fd < 0) {
+@@ -20,6 +20,6 @@ int main(int argc, char *argv[]) {
+   read(fd, buf, sizeof(buf));
+   close(fd);
+ 
+-  printf("After: %d\n", getreadcount());
++  printf("After: %ld\n", getreadcount());
+   exit(0);
+ }
+diff --git a/user/user.h b/user/user.h
+index 38543f4..028f274 100644
+--- a/user/user.h
++++ b/user/user.h
+@@ -24,7 +24,7 @@ int getpid(void);
+ char* sys_sbrk(int,int);
+ int pause(int);
+ int uptime(void);
+-int getreadcount(void);
++uint64 getreadcount(void);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+-- 
+2.43.0
+
