@@ -20,6 +20,8 @@ int main()
     //install_handlers();
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
+    //int pd = getpid();
+    //printf("PD: %d\n", pd);
 
     bool log_enabled = true;
 
@@ -75,21 +77,16 @@ int main()
         fflush(stdout);
         free(display);
 
-        char* input = malloc(1024);
-        int ret = scanf("%1023[^\n]", input);
-
-        if (ret == EOF)
-        {
+        char input[1024];
+        if (fgets(input, sizeof(input), stdin) == NULL) {
+            update_logs(&start, &count, logs, shell_home);
+            free(dir_name);
             handle_eof();
         }
+        input[strcspn(input, "\n")] = '\0';
 
-        if (strcmp(input, "STOP") == 0)
-        {
-            break;
-        }
-
-        scanf("%*[^\n]");
-        scanf("%*c");
+        //scanf("%*[^\n]");
+        //scanf("%*c");
 
         int pos = 0;
         int parse_error = 0;
@@ -109,19 +106,22 @@ int main()
         if (!parse_error && peek(tokens,&pos)->type == T_EOF) {
             //printf("Parsed %d group(s)\n", cmd.ngroups);
 
-            for (int g=0; g<cmd.ngroups; g++) {
+            if (cmd.trailing_amp == 1 && cmd.bg_until != -1) {
+                //printf("Happening");
+                do_in_bg(cmd.bg_until, &cmd, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, tokens, &count, &start, logs, &parse_error, log_enabled, &fg_pid);
+            }
+            else
+            {
+                cmd.bg_until = 0;
+            }
 
-                if (cmd.groups[g].trailing_amp)
-                {
-                    do_in_bg(cmd.groups[g], jobs, &job_count, &next_job_id, dir_name, cwd, shell_home);
-                    continue;
-                }
+            for (int g=cmd.bg_until; g<cmd.ngroups; g++) {
 
                 if (cmd.groups[g].natoms == 1) {
                     Atomic *at = &cmd.groups[g].atoms[0];
-                    //printf("  cmd: ");
+                    /*printf("  cmd: ");
 
-                    /*for (int i=0; at->argv && at->argv[i]; i++) {
+                    for (int i=0; at->argv && at->argv[i]; i++) {
                         printf("%s ", at->argv[i]);
                     }
 
@@ -135,10 +135,15 @@ int main()
 
                     if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "hop") == 0) {
                         handle_hop(dir_name, at->argv, shell_home);  
-                        //printf("NEW DIR_NAME: %s\n", dir_name);            
+                        //printf("NEW DIR_NAME: %s\n", dir_name); 
+                        
+                        if (strcmp(dir_name, shell_home) == 0)
+                        {
+                            strcpy(dir_name, "~");
+                        }
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
-                        printf("\n");
+                        //printf("\n");
                         int a = 0, l=0;
                         char* pathname = (char*) malloc (sizeof(char)*1024);
 
@@ -147,9 +152,9 @@ int main()
                         handle_reveal(pathname, a, l, prev_dir_reveal);              
                     }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
-                        printf("\n");
+                        //printf("\n");
 
-                        //printf("START: %d, COUNT: %d\n", start, count);
+                        printf("START: %d, COUNT: %d\n", start, count);
                         //int num = get_num(at->argv[2]);
                         //printf("NUM: %d\n", num);
 
@@ -170,17 +175,21 @@ int main()
                         {
                             int num = get_num(at->argv[2]);
 
-                            if (num == -1)
+                            if (num == -1 || num > 15)
                             {
                                 syntax_error("Invalid syntax", &parse_error);
                             }
                             else
                             {
-                                int idx = ((count - start)%15 +(num - 1)%15)%15;
-                                //printf("IDX: %d\n", idx);
+                                int idx = ((num - 1)%15)%15;
+                                //printf("IDX: %d, COMMAND: %s\n", idx, logs[idx]);
 
-                                execute_fn(logs[idx], tokens, &count, &start, logs, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, &fg_pid);
+                                execute_fn(idx, tokens, &count, &start, logs, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, &fg_pid);
                             }
+                        }
+                        else
+                        {
+                            printf("Invalid syntax!\n");
                         }
                     }
                     else if (strcmp(at->argv[0], "ping") == 0) {
@@ -189,7 +198,7 @@ int main()
                             int sig = atoi(at->argv[2]) % 32;
 
                             if (kill(pid, sig) == -1) {
-                                perror("No such process found");
+                                printf("Invalid syntax!");
                             } else {
                                 printf("Sent signal %d to process with pid %d\n", sig, pid);
                             }
@@ -215,6 +224,14 @@ int main()
                             jobs[i].state == RUNNING ? "Running" : "Stopped");
                         }
                     }
+                    // else if (strcmp(at->argv[0], "fg") == 0) {
+                    //     int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                    //     do_fg(jid, jobs, &job_count, &fg_pid);
+                    // }
+                    // else if (strcmp(at->argv[0], "bg") == 0) {
+                    //     int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                    //     do_bg(jid, jobs, &job_count);
+                    // }
                     else if (!at->infile && !at->outfile && at->argv && at->argv[0]) {
                         //printf("I'M HERE!!\n");
                         int rc = fork();
@@ -276,12 +293,9 @@ int main()
             if (!parse_error) printf("Invalid Syntax!\n");
         }
 
-        free(input);
+        //free(input);
+        update_logs(&start, &count, logs, shell_home);
     }
-
-    update_logs(&start, &count, logs, shell_home);
-
-    free(dir_name);
 
     return 0;
 }

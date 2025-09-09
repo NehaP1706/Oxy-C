@@ -43,18 +43,21 @@ typedef struct {
 typedef struct {
     Atomic *atoms;    
     int natoms;
-    int trailing_amp;
+    int bg;
 } CmdGroup;
 
 typedef struct {
     CmdGroup *groups;  
     int ngroups;
     TokenType* types;
+    int bg_until;
+    int trailing_amp;
 } ShellCmd;
 
 typedef struct {
     int job_id;
     pid_t pid;
+    pid_t pgid;
     char cmdline[1024]; 
     JobState state;
 } Job;
@@ -75,16 +78,19 @@ void update_logs(int* start, int* count, char logs[15][4097], char* shell_home);
 void inspect_tokens(Token tokens[1024], int* ntok, char cmds[4097], int size);
 void assign_pathname(char* pathname, Atomic* at, int* a, int* l, char* dir_name, char* shell_home, char* prev_dir_reveal);
 int get_num(char* input);
-void execute_fn(char* input, Token* tokens, int* count, int* start, char logs[15][4097], Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home, int* fg_pid);
 void execute_command(Token* tokens, Atomic* at, int* count, int* start, char logs[15][4097], char* dir_name, char*cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
 void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* start, char logs[15][4097], char* dir_name, char* cwd, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
 void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* start, char logs[15][4097], char* cwd, char* dir_name, char* shell_home, int* parse_error, Job* jobs, int* job_count, int* next_job_id, int* fg_pid, bool log_enabled);
-void do_in_bg(CmdGroup g, Job *jobs, int *job_count, int *next_job_id, char* dir_name, char* cwd, char* shell_home);
+void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_job_id, char* dir_name, char* cwd, char* shell_home, Token* tokens, int* count, int* start, char logs[15][4097], int *parse_error, bool log_enabled, pid_t *fg_pid);
 void check_jobs(Job *jobs, int *job_count);
 void sigint_handler(int sig);
 void sigtstp_handler(int sig);
 void install_handlers();
 void handle_eof();
+//void do_fg(int job_id, Job *jobs, int *job_count, pid_t *fg_pid);
+//void do_bg(int job_id, Job *jobs, int *job_count);
+void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][4097], Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home, int* fg_pid);
+char* get_in(int idx);
 
 extern int fg_pid;
 extern Job jobs[64];

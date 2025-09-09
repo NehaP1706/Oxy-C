@@ -217,11 +217,13 @@
                         struct sham_packet fin; 
                         memset(&fin,0,sizeof(fin));
 
-                        fin.hdr.seq_num=htonl(7777);
+                        fin.hdr.seq_num=htonl(cli_seq);
                         fin.hdr.flags=htons(SHAM_FIN);
 
                         sendto(sock,&fin,sizeof(struct sham_header),0,(struct sockaddr*)&srv,slen);
-                        log_event("SND FIN SEQ=7777");
+                        log_event("SND FIN SEQ=%u", cli_seq);
+
+                        cli_seq+=1;
                     } else {
                         // Plain data received, send to the server
 

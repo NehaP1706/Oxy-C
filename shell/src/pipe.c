@@ -7,7 +7,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
     // Create pipes
     for (int i=0; i<num_atoms-1; i++) {
         if (pipe(pipes[i]) < 0) {
-            perror("pipe failed");
+            printf("pipe failed");
             exit(1);
         }
     }
@@ -15,7 +15,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
     for (int a=0; a<num_atoms; a++) {
         pid_t pid = fork();
         if (pid < 0) {
-            perror("fork failed");
+            printf("fork failed");
             exit(1);
         }
         if (pid == 0) {
@@ -41,7 +41,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
             if (at->infile && a == 0) {
                 int fd = open(at->infile, O_RDONLY);
                 if (fd < 0) { 
-                    perror(""); 
+                    printf("No such file or directory!"); 
                     exit(1); }
                 dup2(fd, STDIN_FILENO);
                 close(fd);
@@ -54,7 +54,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     flags |= O_TRUNC;
                 }
                 int fd = open(at->outfile, flags, 0644);
-                if (fd < 0) { perror(""); exit(1); }
+                if (fd < 0) { printf("Could not open file for writing"); exit(1); }
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
             }
@@ -97,7 +97,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                 else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
                 {
                     int num = get_num(at->argv[2]);
-                    printf("NUM: %d\n", num);
+                    //printf("NUM: %d\n", num);
 
                     if (num == -1)
                     {
@@ -105,12 +105,16 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     }
                     else
                     {
-                        int idx = ((*count - *start)%15 + (num - 1)%15)%15;
+                        int idx = ((num - 1)%15)%15;
                         printf("EXECUTING LINE: %d", idx);
                         fflush(stdout);
 
-                        execute_fn(logs[idx], tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
+                        execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
                     }
+                }
+                else
+                {
+                    printf("Invalid Syntax!\n");
                 }
             }
             else if (strcmp(at->argv[0], "ping") == 0) {
@@ -119,7 +123,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     int sig = atoi(at->argv[2]) % 32;
 
                     if (kill(pid, sig) == -1) {
-                        perror("No such process found");
+                        printf("Invalid syntax!");
                     } else {
                         printf("Sent signal %d to process with pid %d\n", sig, pid);
                     }
@@ -147,17 +151,20 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
             }
             else if (at->argv && at->argv[0])
             {
-                printf("CALLING EXEC 2\n");
+                //printf("CALLING EXEC 2\n");
                 execvp(at->argv[0], at->argv);
-                printf("EXEC() ERROR.");
+                printf("Command not found\n");
+                exit(1);
             }
             else 
             {
-                printf("CALLING EXEC 1\n");
+                //printf("CALLING EXEC 1\n");
                 execvp(at->argv[0], at->argv);
-                perror("execvp failed");
+                printf("Command not found\n");
                 exit(1);
             }
+
+            exit(0);
         }
     }
 

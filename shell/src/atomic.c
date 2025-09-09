@@ -13,7 +13,7 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
         if (at->infile) {
             int fd = open(at->infile, O_RDONLY);
             if (fd < 0) {
-                perror("");
+                printf("No such file or directory!");
                 exit(1);
             }
             dup2(fd, STDIN_FILENO);
@@ -28,7 +28,7 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
                 fd = open(at->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
             if (fd < 0) {
-                perror("Cannot open output file");
+                printf("Unable to create file for writing");
                 exit(1);
             }
             dup2(fd, STDOUT_FILENO);
@@ -73,12 +73,30 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
                 }
                 else
                 {
-                    int idx = ((*count - *start)%15 + (num - 1)%15)%15;
-                    printf("EXECUTING LINE: %d", idx);
+                    int idx = ((num - 1)%15)%15;
+                    //printf("EXECUTING LINE: %d", idx);
                     fflush(stdout);
 
-                    execute_fn(logs[idx], tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
+                    execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
                 }
+            }
+            else
+            {
+                printf("Invalid syntax!\n");
+            }
+        }
+        else if (strcmp(at->argv[0], "ping") == 0) {
+            if (at->argv[1] && at->argv[2]) {
+                pid_t pid = atoi(at->argv[1]);
+                int sig = atoi(at->argv[2]) % 32;
+
+                if (kill(pid, sig) == -1) {
+                    printf("Invalid syntax!");
+                } else {
+                    printf("Sent signal %d to process with pid %d\n", sig, pid);
+                }
+            } else {
+                printf("Usage: ping <pid> <signal_number>\n");
             }
         }
         else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
@@ -102,7 +120,7 @@ void execute_command(Token* tokens, Atomic* at, int* count, int* start, char log
         else 
         {
             execvp(at->argv[0], at->argv);
-            perror("Command not found!\n");
+            printf("Command not found!\n");
             exit(1);
         }
 

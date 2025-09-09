@@ -45,12 +45,16 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                     }
                     else
                     {
-                        int idx = ((*count - *start)%15 + (num - 1)%15)%15;
-                        printf("EXECUTING LINE: %d", idx);
+                        int idx = ((num - 1)%15)%15;
+                        //printf("EXECUTING LINE: %d", idx);
                         fflush(stdout);
 
-                        execute_fn(logs[idx], tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
+                        execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
                     }
+                }
+                else
+                {
+                    printf("Invalid syntax!\n");
                 }
             }
             else if (strcmp(at->argv[0], "ping") == 0) {
@@ -59,12 +63,12 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                     int sig = atoi(at->argv[2]) % 32;
 
                     if (kill(pid, sig) == -1) {
-                        perror("No such process found");
+                        printf("Invalid syntax!\n");
                     } else {
                         printf("Sent signal %d to process with pid %d\n", sig, pid);
                     }
                 } else {
-                    printf("Usage: ping <pid> <signal_number>\n");
+                    printf("Invalid syntax!\n");
                 }
             }
             else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {
@@ -88,6 +92,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
             else if (at->argv && at->argv[0])
             {
                 int rc = fork();
+                printf("started %s\n", at->argv[0]);
 
                 if (rc == 0) {
                 // child
@@ -98,7 +103,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                     signal(SIGTSTP, sigtstp_handler);
 
                     execvp(at->argv[0], at->argv);
-                    perror("Command not found!\n");
+                    printf("Command not found!\n");
                     exit(1);
                 } else {
                     *fg_pid = rc;
@@ -108,6 +113,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                     signal(SIGTSTP, sigtstp_handler);
 
                     int status;
+                    printf("ended %s", at->argv[0]);
                     waitpid(rc, &status, WUNTRACED);  // wait for exit or stop
 
                     signal(SIGINT, SIG_IGN);
@@ -117,9 +123,9 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
             }
             else
             {
-                printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
+                //printf("CALLING SINGLE INPUT OUTPUT REDIRECTION\n");
                 execute_command(tokens, at, count, start, logs, dir_name, cwd, shell_home, parse_error, jobs, job_count, next_job_id, fg_pid, log_enabled);
-                exit(0);
+                //exit(0);
             }
         }
         else

@@ -66,7 +66,7 @@ void handle_reveal(char *path, int a, int l, char *prev_dir_reveal) {
 
     DIR *dir = opendir(path);
     if (!dir) {
-        perror("reveal");
+        printf("No such directory!\n");
         return;
     }
 

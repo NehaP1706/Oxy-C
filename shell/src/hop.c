@@ -5,6 +5,11 @@ char last_dir[1024] = "";   // global, tracks the previous dir
 void handle_hop(char* cwd, char **argv, char* shell_home) {
     char temp[1024];
 
+    if (strcmp(last_dir, "~") == 0)
+    {
+        strcpy(last_dir, shell_home);
+    }
+
     for (int i = 1; argv[i] != NULL; i++) {
         char *target = argv[i];
 
@@ -14,7 +19,7 @@ void handle_hop(char* cwd, char **argv, char* shell_home) {
                 getcwd(cwd, 1024);   // <-- real path /home/neha
                 strcpy(last_dir, temp);
             } else {
-                perror("hop");
+                printf("No such directory!\n");
             }
         }
         else if (strcmp(target, "-") == 0) {
@@ -30,7 +35,8 @@ void handle_hop(char* cwd, char **argv, char* shell_home) {
                 if (strcmp(cwd, shell_home) == 0)
                     strcpy(cwd, "~");
             } else {
-                perror("hop");
+                //printf("%s", last_dir);
+                printf("No such directory!\n");
             }
         }
         else {
@@ -42,7 +48,7 @@ void handle_hop(char* cwd, char **argv, char* shell_home) {
                 if (strcmp(cwd, shell_home) == 0)
                     strcpy(cwd, "~");
             } else {
-                perror("hop");
+                printf("No such directory!\n");
             }
         }
     }

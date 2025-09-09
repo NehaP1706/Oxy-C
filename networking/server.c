@@ -200,6 +200,16 @@
                         log_event("SND FIN SEQ=%u", server_seq);
 
                         server_seq += 1;
+
+                        ssize_t rfin = recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&cliaddr, &cli_len);
+                        if (rfin > 0) {
+                            struct sham_header *ackh = (struct sham_header*)buf;
+                            if (ntohs(ackh->flags) & SHAM_ACK) {
+                                log_event("RCV ACK=%u", ntohl(ackh->ack_num));
+                                break;
+                            }
+                        }
+
                     } else {
                         // Send data as a chat application: packet setup
                         struct sham_packet pkt; 
