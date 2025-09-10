@@ -37,7 +37,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                 else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
                 {
                     int num = get_num(at->argv[2]);
-                    printf("NUM: %d\n", num);
+                    //printf("NUM: %d\n", num);
 
                     if (num == -1)
                     {
@@ -56,6 +56,14 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
                 {
                     printf("Invalid syntax!\n");
                 }
+            }
+            else if (strcmp(at->argv[0], "fg") == 0) {
+                int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                do_fg(jid, jobs, job_count, fg_pid);
+            }
+            else if (strcmp(at->argv[0], "bg") == 0) {
+                int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                do_bg(jid, jobs, job_count);
             }
             else if (strcmp(at->argv[0], "ping") == 0) {
                 if (at->argv[1] && at->argv[2]) {
@@ -92,7 +100,7 @@ void execute_sequential(ShellCmd *cmd, Token* tokens, int g, int* count, int* st
             else if (at->argv && at->argv[0])
             {
                 int rc = fork();
-                printf("started %s\n", at->argv[0]);
+                //printf("started %s\n", at->argv[0]);
 
                 if (rc == 0) {
                 // child

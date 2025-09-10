@@ -1,4 +1,3 @@
-// corrected_parser.c
 #include "shell.h"
 
 /* --- helper token accessors --- */
@@ -135,7 +134,7 @@ ShellCmd parse_shell_cmd(Token* tokens, int* pos, int* parse_error) {
             sc.trailing_amp = 1;
             sc.ngroups++;
 
-            /* ⚠️ look ahead: if next token is ; or &&, keep parsing foreground */
+            /* look ahead: if next token is ; or &&, keep parsing foreground */
             t = peek(tokens, pos)->type;
             if (t == T_SEMI || t == T_AND_AND) {
                 /* don’t skip, let the next loop consume it */

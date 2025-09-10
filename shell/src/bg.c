@@ -30,7 +30,7 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
                     free(pathname);
                 }
                 else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "log") == 0) {
-                printf("\n");
+                //printf("\n");
 
                         //printf("START: %d, COUNT: %d\n", start, count);
                         //int num = get_num(at->argv[2]);
@@ -70,6 +70,14 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
                             printf("Invalid syntax!\n");
                         }
                     }
+                    else if (strcmp(at->argv[0], "fg") == 0) {
+                        int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                        do_fg(jid, jobs, job_count, fg_pid);
+                    }
+                    else if (strcmp(at->argv[0], "bg") == 0) {
+                        int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                        do_bg(jid, jobs, job_count);
+                    }
                     else if (strcmp(at->argv[0], "ping") == 0) {
                         if (at->argv[1] && at->argv[2]) {
                             pid_t pid = atoi(at->argv[1]);
@@ -81,7 +89,7 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
                                 printf("Sent signal %d to process with pid %d\n", sig, pid);
                             }
                         } else {
-                            printf("Usage: ping <pid> <signal_number>\n");
+                            printf("Invalid syntax!\n");
                         }
                     }
                     else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {

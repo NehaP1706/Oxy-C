@@ -25,8 +25,8 @@ void sigtstp_handler(int sig) {
     }
     if (fg_pid > 0) {
         // Stop the foreground process group
-        printf("%d\n", fg_pid);
-        kill(-fg_pid, SIGTSTP);
+        //printf("%d\n", fg_pid);
+        //kill(-fg_pid, SIGTSTP);
 
         // Save it in jobs[]
         if (job_count < 64) {

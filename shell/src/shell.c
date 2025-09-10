@@ -203,7 +203,7 @@ int main()
                                 printf("Sent signal %d to process with pid %d\n", sig, pid);
                             }
                         } else {
-                            printf("Usage: ping <pid> <signal_number>\n");
+                            printf("Invalid syntax!\n");
                         }
                     }
                     else if (at->argv[0] && strcmp(at->argv[0], "activities") == 0) {

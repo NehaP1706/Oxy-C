@@ -57,7 +57,7 @@ char* get_in(int idx)
 {
     FILE* fptr = fopen("logs.txt", "r");
     if (!fptr) {
-        perror("fopen");
+        perror("No such file or directory");
         return NULL;
     }
 
@@ -129,13 +129,21 @@ void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][40
                         //printf("NEW DIR_NAME: %s\n", dir_name);            
                 }
                 else if (!at->infile && !at->outfile && at->argv && at->argv[0] && strcmp(at->argv[0], "reveal") == 0) {
-                    printf("\n");
+                    //printf("\n");
                     int a = 0, l=0;
                     char* pathname = (char*) malloc (sizeof(char)*1024);
 
                     assign_pathname(pathname, at, &a, &l, dir_name, shell_home, prev_dir_reveal);
                         
                     handle_reveal(pathname, a, l, prev_dir_reveal);              
+                }
+                else if (strcmp(at->argv[0], "fg") == 0) {
+                    int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                    do_fg(jid, jobs, job_count, fg_pid);
+                }
+                else if (strcmp(at->argv[0], "bg") == 0) {
+                    int jid = at->argv[1] ? atoi(at->argv[1]) : -1;
+                    do_bg(jid, jobs, job_count);
                 }
                 else if (strcmp(at->argv[0], "ping") == 0) {
                     if (at->argv[1] && at->argv[2]) {
