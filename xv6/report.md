@@ -10,28 +10,17 @@ PID: 10 | creationTime: 84
 PID: 11 | creationTime: 84
 --> Scheduling PID 4 (lowest creation_time)
 
-AVG WAIT TIME: 6.75
-AVG RUN TIME: 1.625
+Average: wait=40 runtime=13 turnaround=54
 
 CFS SCHEDULER:
 
-PID	State	vruntime	Nice	Weight
--------------------------------------------
-1	sleep 	15	18	1586
-2	sleep 	11	18	1586
-3	sleep 	2	13	4904
-4	runble	1	15	3121
-5	run   	0	-9	7214889101763438966
-6	runble	0	7	18705
-7	runble	0	-10	32776920117747823
-8	runble	0	-1	0
-9	runble	0	-8	7812726566314275689
-10	runble	0	-14	12320
-11	runble	0	9	11916
---> Scheduling PID 5 (lowest vRuntime)
+PID: 3 | vRuntime: 37
+PID: 8 | vRuntime: 10
+PID: 10 | vRuntime: 0
+PID: 11 | vRuntime: 0
+--> Scheduling PID 10 (lowest vRuntime)
 
-AVG WAIT TIME: ~2.5
-AVG RUN TIME: 3.72
+Average: wait=33 runtime=18 turnaround=51
 
 RR SCHEDULER:
 
@@ -68,7 +57,39 @@ RR SCHEDULER:
 [CPU 0] Switching -> PID 11 (state=RUNNABLE)
 [CPU 0] Returned   <- PID 11 (new state=RUNNABLE)
 
-AVG WAIT TIME: ~ 0
-AVG RUN TIME: 13.6
+Average: wait=3 runtime=22 turnaround=26
+
+
+IMPLEMENTATION SPECIFICATIONS:
+
+1) FCFS SCHEDULER:
+- Only parameter of a process to be tracked is the creation time. (Added a struct element in proc.h)
+- No pre-emption required at any time. (Does not yield() in trap.c)
+- Loop through all the currently running processes and find the process with minimum creation_time, that process it to be scheduled next. (Context switch in proc.c)
+
+2) CFS SCHEDULER:
+- Parameters of a process to be tracked: nice value, weight, vruntime, allowed_slice among others. (elements added in proc.h proc struct)
+- If the process has run for longer than the allowed slice, we increment the vruntime and yield(). (trap.c modifications)
+- Loop through all the currently running processes and find the process with minimum vruntime, that process it to be scheduled next. (Context switch in proc.c)
+- Assuming the set_nice syscall was not expected to be implemented (not mentioned in the doc), settings for randomization have been commented out.
+
+3) RR SCHEDULER:
+- Already implemented by cloned system.
+
+4) readcount.c and readcount.h
+- Global variable 'global_read_bytes' is initialized to 0 and maintained across all processes.
+- Auxilary helper functions called in sysfile.c to update the said variable and make it accessible to both kernel and user.
+- The bytes read from the terminal input are also added as the system treats it like a file_read. (AMBIGUOUS NATURE)
+
+EXTRAS:
+
+5) schedtest.c
+- A C program that spawns child processes to burn up the CPU usage.
+- Prints out the average runtime, waitime and turnaround time.
+- Usage: schedtest.c nchildren maxwork
+
+6) waitx() and wait()
+- For the kernel and user to have synchronized startime, endtime information we required another syscall.
+- Synchronizes the setting of variables in the schedtest.c and proc.c (for process variables).
 
 
