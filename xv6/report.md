@@ -1,5 +1,6 @@
-FCFS SCHEDULER:
+## FCFS SCHEDULER:
 
+```c
 PID: 4 | creationTime: 84
 PID: 5 | creationTime: 84
 PID: 6 | creationTime: 84
@@ -9,21 +10,25 @@ PID: 9 | creationTime: 84
 PID: 10 | creationTime: 84
 PID: 11 | creationTime: 84
 --> Scheduling PID 4 (lowest creation_time)
+```
 
-Average: wait=40 runtime=13 turnaround=54
+### Average: wait=40 runtime=13 turnaround=54
 
-CFS SCHEDULER:
+## CFS SCHEDULER:
 
+```c
 PID: 3 | vRuntime: 37
 PID: 8 | vRuntime: 10
 PID: 10 | vRuntime: 0
 PID: 11 | vRuntime: 0
+```
 --> Scheduling PID 10 (lowest vRuntime)
 
-Average: wait=33 runtime=18 turnaround=51
+### Average: wait=33 runtime=18 turnaround=51
 
-RR SCHEDULER:
+## RR SCHEDULER:
 
+```c
 [CPU 0] Switching -> PID 4 (state=RUNNABLE)
 [CPU 0] Returned   <- PID 4 (new state=RUNNABLE)
 [CPU 0] Switching -> PID 5 (state=RUNNABLE)
@@ -56,11 +61,11 @@ RR SCHEDULER:
 [CPU 0] Returned   <- PID 10 (new state=RUNNABLE)
 [CPU 0] Switching -> PID 11 (state=RUNNABLE)
 [CPU 0] Returned   <- PID 11 (new state=RUNNABLE)
+```
+### Average: wait=3 runtime=22 turnaround=26
 
-Average: wait=3 runtime=22 turnaround=26
 
-
-IMPLEMENTATION SPECIFICATIONS:
+## IMPLEMENTATION SPECIFICATIONS:
 
 1) FCFS SCHEDULER:
 - Only parameter of a process to be tracked is the creation time. (Added a struct element in proc.h)
@@ -81,7 +86,7 @@ IMPLEMENTATION SPECIFICATIONS:
 - Auxilary helper functions called in sysfile.c to update the said variable and make it accessible to both kernel and user.
 - The bytes read from the terminal input are also added as the system treats it like a file_read. (AMBIGUOUS NATURE)
 
-EXTRAS:
+## EXTRAS:
 
 5) schedtest.c
 - A C program that spawns child processes to burn up the CPU usage.
