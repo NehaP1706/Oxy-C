@@ -108,6 +108,7 @@ int main()
 
             if (cmd.trailing_amp == 1 && cmd.bg_until != -1) {
                 //printf("Happening");
+
                 do_in_bg(cmd.bg_until, &cmd, jobs, &job_count, &next_job_id, dir_name, cwd, shell_home, tokens, &count, &start, logs, &parse_error, log_enabled, &fg_pid);
             }
             else

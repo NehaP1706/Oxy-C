@@ -77,7 +77,7 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                 }
             }
 
-            // close all pipes
+            //close all pipes
             for (int i = 0; i < num_atoms-1; i++) {
                 close(pipes[i][0]);
                 close(pipes[i][1]);
@@ -113,21 +113,46 @@ void execute_pipeline(Token* tokens, ShellCmd *cmd, int g, int* count, int* star
                     } 
                     else if (strcmp(at->argv[1], "execute") == 0 && at->argv[2])
                     {
+                        //printf("%s %s %s\n", at->argv[0], at->argv[1], at->argv[2]);
                         int num = get_num(at->argv[2]);
-                        //printf("NUM: %d\n", num);
+                        //printf("%d %d\n", *count, *start);
+                        int idx = (*count - *start) - ((num - 1) % 15) % 15 - 1;
+                        //printf("%d %d\n", num, idx);    
+                        char* replay = get_in(idx);
 
-                        if (num == -1 || num > (*count - *start))
-                        {
-                            syntax_error("Invalid syntax", parse_error);
-                        }
-                        else
-                        {
-                            int idx = (count - start) - ((num - 1)%15)%15 - 1;
-                            //printf("EXECUTING LINE: %d", idx);
-                            fflush(stdout);
+        if (!replay) {
+            printf("eeefInvalid syntax!\n");
+            exit(1);
+        }
 
-                            execute_fn(idx, tokens, count, start, logs, jobs, job_count, next_job_id, dir_name, cwd, shell_home, fg_pid);
-                        }
+        // Strip newline
+        size_t L = strlen(replay);
+        if (L > 0 && replay[L-1] == '\n') replay[L-1] = '\0';
+
+        pid_t rpid = fork();
+        if (rpid < 0) {
+            perror("fork");
+            exit(1);
+        }
+        if (rpid == 0) {
+            // replay child inherits stdin/stdout of pipeline child
+            execute_string(
+                replay,
+                tokens,
+                count, start,
+                logs,
+                jobs, job_count, next_job_id,
+                dir_name, cwd, shell_home,
+                fg_pid,
+                true   // piped context
+            );
+            _exit(0); // safety
+        } else {
+            int st;
+            waitpid(rpid, &st, 0);
+            free(replay);
+        }
+        
                     }
                     else
                     {

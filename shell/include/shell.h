@@ -95,6 +95,14 @@ void do_bg(int job_id, Job *jobs, int *job_count);
 void execute_fn(int idx, Token* tokens, int* count, int* start, char logs[15][4097], Job* jobs, int* job_count, int* next_job_id, char* dir_name, char* cwd, char* shell_home, int* fg_pid);
 char* get_in(int idx);
 void remove_job(Job jobs[], int *job_count, int index);
+void execute_string(const char* input,
+    Token* tokens,
+    int* count, int* start,
+    char logs[15][4097],
+    Job* jobs, int* job_count, int* next_job_id,
+    char* dir_name, char* cwd, char* shell_home,
+    int* fg_pid, bool piped);
+bool if_log(char* cmd);
 
 extern int fg_pid;
 extern Job jobs[64];

@@ -72,3 +72,17 @@ void check_jobs(Job *jobs, int *job_count) {
         perror("waitpid");
     }
 }
+
+bool if_log(char* cmd) {
+    int n = strlen(cmd);
+
+    if (n >= 3) {
+        for (int i = 0; i < n - 2; i++) {
+            if (cmd[i] == 'l' && cmd[i+1] == 'o' && cmd[i+2] == 'g') {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
