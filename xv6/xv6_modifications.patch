@@ -1,7 +1,7 @@
 From ad0d564d1cec219f6c360b5afd8c0c71d5020aeb Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Sat, 6 Sep 2025 15:09:45 +0530
-Subject: [PATCH 1/6] Readcount updated.
+Subject: [PATCH 1/7] Readcount updated.
 
 ---
  kernel/readcount.c | 13 +++++++++++++
@@ -86,7 +86,7 @@ index 0000000..af9a889
 From 95ad20998013b50cc4b11d3f138c776a0f9bbd07 Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Sat, 6 Sep 2025 15:18:57 +0530
-Subject: [PATCH 2/6] Minor changes.
+Subject: [PATCH 2/7] Minor changes.
 
 ---
  kernel/defs.h    |   1 +
@@ -502,7 +502,7 @@ index c5d4c3a..25f3457 100755
 From 040f8627f8454ef6d3de4333821c8fe498833158 Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Sun, 7 Sep 2025 22:18:34 +0530
-Subject: [PATCH 3/6] Added schedulers and readcount()
+Subject: [PATCH 3/7] Added schedulers and readcount()
 
 ---
  Makefile           | 13 ++++++++++++-
@@ -767,7 +767,7 @@ index 38543f4..028f274 100644
 From ff16c1f27a30310c9adf56261a1be4c8fbccc4a3 Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Tue, 9 Sep 2025 23:57:29 +0530
-Subject: [PATCH 4/6] as much as doable
+Subject: [PATCH 4/7] as much as doable
 
 ---
  Makefile         |  16 ++-
@@ -1402,7 +1402,7 @@ index 0000000..8dcdcc9
 From 544034933ba37a9eb2e4a4ad6eea873f7f5181ee Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Wed, 10 Sep 2025 00:47:10 +0530
-Subject: [PATCH 5/6] small fix
+Subject: [PATCH 5/7] small fix
 
 ---
  kernel/trap.c | 2 +-
@@ -1428,7 +1428,7 @@ index 169bc75..42d95e2 100644
 From a010993beab5d720d0ee1536864fbc174e10f97a Mon Sep 17 00:00:00 2001
 From: Layla1706 <nehaprabhup17@gmail.com>
 Date: Wed, 10 Sep 2025 12:27:49 +0530
-Subject: [PATCH 6/6] Enhanced ver
+Subject: [PATCH 6/7] Enhanced ver
 
 ---
  kernel/defs.h    |  4 +++
@@ -1823,6 +1823,32 @@ index 25f3457..7d402ab 100755
 +entry("getprocesstimes");
 +entry("waitx");
  
+-- 
+2.43.0
+
+
+From d9b664ad26dc44383bfc9d89c2db426859403438 Mon Sep 17 00:00:00 2001
+From: Layla1706 <nehaprabhup17@gmail.com>
+Date: Thu, 11 Sep 2025 13:43:54 +0530
+Subject: [PATCH 7/7] fix nice value setting
+
+---
+ kernel/proc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/proc.c b/kernel/proc.c
+index 04abb9e..8ccaaaf 100644
+--- a/kernel/proc.c
++++ b/kernel/proc.c
+@@ -22,7 +22,7 @@ static void freeproc(struct proc *p);
+ extern char trampoline[]; // trampoline.S
+ 
+ uint64 compute_weight(int nice) {
+-    return nice_to_weight[nice];
++    return nice_to_weight[nice + 20];
+ }
+ 
+ static unsigned long rand_seed = 1;
 -- 
 2.43.0
 
