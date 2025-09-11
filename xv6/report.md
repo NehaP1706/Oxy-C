@@ -17,8 +17,8 @@ PID: 11 | creationTime: 84
 ## CFS SCHEDULER:
 
 ```c
-PID: 3 | vRuntime: 37
-PID: 8 | vRuntime: 10
+PID: 3 | vRuntime: 18
+PID: 8 | vRuntime: 12
 PID: 10 | vRuntime: 0
 PID: 11 | vRuntime: 0
 ```
