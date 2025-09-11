@@ -11,7 +11,7 @@ void do_in_bg(int bg_until, ShellCmd* cmd, Job *jobs, int *job_count, int *next_
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
-        for (int g = 0; g <= bg_until; g++) {
+        for (int g = 0; g < bg_until; g++) {
 
             if ((cmd->groups[g]).natoms == 1) {
                 Atomic *at = &((cmd->groups[g]).atoms[0]);
@@ -218,19 +218,34 @@ void do_fg(int jid, Job* jobs, int *job_count, pid_t *fg_pid) {
     printf("%s\n", job->cmdline);
 
     if (job->state == STOPPED) {
+        *fg_pid = job->pid;
+        setpgid(job->pid, job->pid);
+
+        signal(SIGINT, sigint_handler);
+        signal(SIGTSTP, sigtstp_handler);
+
         kill(job->pid, SIGCONT);  // Resume the job
+
         job->state = RUNNING;
     }
 
-    *fg_pid = job->pid;
+    *fg_pid = getpid();
 
     // Wait for job to finish or stop
+
+    setpgid(getpid(), getpid());
+
+    signal(SIGINT, sigint_handler);
+    signal(SIGTSTP, sigtstp_handler);
+
     int status;
     waitpid(job->pid, &status, WUNTRACED);
 
     // If the job stopped again, update its state
     if (WIFSTOPPED(status)) {
         job->state = STOPPED;
+        printf("[%d] Stopped %s\n", jobs[*job_count].job_id, jobs[*job_count].cmdline);
+        *fg_pid = -1;
     } else {
         remove_job(jobs, job_count, i);
         // Job finished, remove from job list (optional)
