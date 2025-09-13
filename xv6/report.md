@@ -64,6 +64,12 @@ PID: 11 | vRuntime: 0
 ```
 ### Average: wait=3 runtime=22 turnaround=26
 
+## INFERENCE:
+Based on the given observations and general performance we can conclude:
+- FCFS has maximum average wait-time.
+- RR has minimum average wait-time.
+- CFS attempts to balance both by being fair.
+
 
 ## IMPLEMENTATION SPECIFICATIONS:
 

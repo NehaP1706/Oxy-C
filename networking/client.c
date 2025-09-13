@@ -205,15 +205,10 @@
 
                     // Truncate the new line character to reduce confusion
                     int n = strlen(line);
-                    //printf("%d\n", n);
-                    if (n==6 && line[n-1] == '\n')
-                    {
-                        line[n-1]='\0';
-                        n--;
-                    }
+                    
 
                     // 1. A request for graceful closure of the connection? From the server side.
-                    if (strcmp(line, "/quit")==0) {
+                    if (n==6 && line[0] == '/' && line[1] == 'q' && line[2] == 'u' && line[3] == 'i' && line[4] == 't' && line[5] == '\n') {
                         struct sham_packet fin; 
                         memset(&fin,0,sizeof(fin));
 
@@ -262,6 +257,7 @@
                         size_t dlen=r2-sizeof(struct sham_header);
 
                         if (dlen>0) {
+                            printf("Server: ");
                             fwrite(buf+sizeof(struct sham_header),1,dlen,stdout);
                             fflush(stdout);
 
@@ -290,7 +286,7 @@
         size_t fname_len = strlen(outname);
         if (fname_len > 0) {
             send_packet(sock, &srv, slen, nextseq, (uint8_t*)outname, fname_len, remote_win);
-            log_event("SND FILENAME SEQ=%u NAME=%s", nextseq, outname);
+            log_event("SND DATA SEQ=%u LEN=%d", nextseq, fname_len);
             nextseq += fname_len;  // increment sequence number
         }
 
@@ -418,13 +414,43 @@
         sendto(sock,&fin,sizeof(struct sham_header),0,(struct sockaddr*)&srv,slen);
         log_event("SND FIN SEQ=%u",nextseq);
 
+        int got_ack = 0, got_fin = 0;
+        struct timeval tv = {1, 0}; // 1 second timeout
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        while (!got_ack || !got_fin) {
+            if (!got_ack) {
+                sendto(sock, &fin, sizeof(struct sham_header), 0,
+                    (struct sockaddr*)&srv, slen);
+                log_event("RETX FIN SEQ=%u", nextseq);
+            }
+
+            ssize_t n = recvfrom(sock, buf, sizeof(buf), 0,
+                                (struct sockaddr*)&srv, &slen);
+            if (n > 0) {
+                struct sham_header *hdr = (struct sham_header*)buf;
+
+                if ((ntohs(hdr->flags) & SHAM_ACK) &&
+                    ntohl(hdr->ack_num) == nextseq+1) {
+                    log_event("RCV ACK=%u", ntohl(hdr->ack_num));
+                    got_ack = 1;
+                }
+                else if (ntohs(hdr->flags) & SHAM_FIN) {
+                    log_event("RCV FIN SEQ=%u", ntohl(hdr->seq_num));
+                    // reply with ACK for server’s FIN
+                    struct sham_packet ack = {0};
+                    ack.hdr.flags = htons(SHAM_ACK);
+                    ack.hdr.ack_num = htonl(ntohl(hdr->seq_num)+1);
+                    sendto(sock, &ack, sizeof(struct sham_header), 0,
+                        (struct sockaddr*)&srv, slen);
+                    log_event("SND ACK=%u", ntohl(ack.hdr.ack_num));
+                    got_fin = 1;
+                }
+            }
+        }
+
         // 2 & 3. Receive the SYN-ACK from the server
         // 4. Send ACK to proceed with closing the connection
-        recvfrom(sock,buf,sizeof(buf),0,(struct sockaddr*)&srv,&slen);
-        log_event("RCV ACK=%u",ntohl(((struct sham_header*)buf)->ack_num));
-
-        recvfrom(sock,buf,sizeof(buf),0,(struct sockaddr*)&srv,&slen);
-        log_event("RCV FIN SEQ=%u",ntohl(((struct sham_header*)buf)->seq_num));
 
         struct sham_packet ack2; memset(&ack2,0,sizeof(ack2));
         ack2.hdr.ack_num=htonl(ntohl(((struct sham_header*)buf)->seq_num)+1);

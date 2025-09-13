@@ -46,9 +46,10 @@
             chat_mode = 1;
         }
 
-        if (!chat_mode && argc >=4) 
+        if (!chat_mode && argc >=3) 
         {
-            g_loss = atof(argv[3]);
+            g_loss = atof(argv[2]);
+           // printf("G_LOSS: %f", g_loss);
         }
 
         if (chat_mode && argc >=4) 
@@ -154,6 +155,7 @@
         }
 
         // After handshake: either chat or file-transfer
+        // The connection is always terminated when either types /quit, but the server keeps listening anyway.
         if (chat_mode) {
             // Allows to keep both connections valid: terminal input and socket
             fd_set readfds;
@@ -180,15 +182,9 @@
 
                     // Truncate the new line character to reduce confusion
                     int n = strlen(line);
-                    //printf("%d\n", n);
-                    if (n==6 && line[n-1] == '\n')
-                    {
-                        line[n-1]='\0';
-                        n--;
-                    }
 
                     // 1. A request for graceful closure of the connection? From the server side.
-                    if (strcmp(line, "/quit")==0) {
+                    if (n==6 && line[0] == '/' && line[1] == 'q' && line[2] == 'u' && line[3] == 'i' && line[4] == 't' && line[5] == '\n') {
                         // initiate 4-way Termination handshake 
                         struct sham_packet pkt; 
                         memset(&pkt,0,sizeof(pkt));
@@ -207,6 +203,8 @@
                             if (ntohs(ackh->flags) & SHAM_ACK) {
                                 log_event("RCV ACK=%u", ntohl(ackh->ack_num));
                                 break;
+                                //close(sock);
+                                //return 0;
                             }
                         }
 
@@ -267,13 +265,14 @@
                         recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&cliaddr, &cli_len);
                         log_event("RCV ACK=%u", ntohl(((struct sham_header*)buf)->ack_num));
                         
-                        break;
+                        //break;
                     } else {
                         // bytes received - header size = payload size, presumably
                         size_t dlen = r - sizeof(struct sham_header);
 
                         if (dlen>0) {
                             // Print the text onto stdout fd
+                            printf("Client: ");
                             fwrite(buf+sizeof(struct sham_header),1,dlen,stdout);
                             fflush(stdout);
 
@@ -292,8 +291,8 @@
                     }
                 }
             }
-            close(sock);
-            return 0;
+            //close(sock);
+            //return 0;
         }
 
         // File-transfer mode:
@@ -414,13 +413,16 @@
                 int placed = 0;
 
                 // Save the ones we already received
-                for (int i=0;i<MAX_BUF_PKTS;i++) if (bufs[i].seq==0) 
-                { 
-                    bufs[i].seq = seq; 
-                    bufs[i].len = dlen; 
-                    memcpy(bufs[i].data, buf+sizeof(struct sham_header), dlen); 
-                    placed=1; 
-                    break; 
+                for (int i=0;i<MAX_BUF_PKTS;i++) 
+                {
+                    if (bufs[i].seq==0) 
+                    { 
+                        bufs[i].seq = seq; 
+                        bufs[i].len = dlen; 
+                        memcpy(bufs[i].data, buf+sizeof(struct sham_header), dlen); 
+                        placed=1; 
+                        break; 
+                    }
                 }
 
                 if (!placed) {
