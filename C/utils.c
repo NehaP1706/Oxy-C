@@ -1,23 +1,26 @@
-#include "cshark.h"
+#include "shop.h"
 
-void handle_sigint(int signo) {
-    (void)signo;
-    if (g_capturing && g_handle) {
-        // Break out of pcap_loop
-        pcap_breakloop((pcap_t *)g_handle);
-    }
+// ---------- Utilities ----------
+long program_start_sec() {
+    static struct timeval start;
+    static int inited = 0;
+    if (!inited) { gettimeofday(&start, NULL); inited = 1; }
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return now.tv_sec - start.tv_sec;
+}
+void print_time_pref() {
+    printf("%ld ", program_start_sec());
 }
 
-void free_stored_packets() {
-    if (!g_packets) {
-        g_stored_count = 0;
-        return; // nothing to free
-    }
-
-    for (int i = 0; i < g_stored_count; i++) {
-        free(g_packets[i].data);
-    }
-    free(g_packets);
-    g_packets = NULL;
-    g_stored_count = 0;
+// ---------- Logging helpers ----------
+void log_customer_action(int id, const char *action) {
+    print_time_pref();
+    printf("Customer %d %s\n", id, action);
+    fflush(stdout);
+}
+void log_chef_action(int id, const char *action) {
+    print_time_pref();
+    printf("Chef %d %s\n", id, action);
+    fflush(stdout);
 }

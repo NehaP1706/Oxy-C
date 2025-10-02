@@ -1,5 +1,5 @@
-all: 
-	gcc -Wall -Wextra -g utils.c capture.c menu.c print.c L3.c L4.c inspect.c cshark.c -o cshark -lpcap
+all:
+	gcc -pthread queue.c threads.c utils.c main.c -o main
 
 clean:
-	rm -f cshark
+	rm main

@@ -1,1 +1,0 @@
-# Fighting for the resources
