@@ -1,3 +1,6 @@
+
+#ifndef FS_H
+#define FS_H
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
 
@@ -55,8 +58,13 @@ struct dinode {
 
 // The name field may have DIRSIZ characters and not end in a NUL
 // character.
+
 struct dirent {
   ushort inum;
   char name[DIRSIZ] __attribute__((nonstring));
 };
+
+extern int kernel_unlink(char *path);
+
+#endif // FS_H
 

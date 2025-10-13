@@ -299,7 +299,9 @@ ilock(struct inode *ip)
   if(ip == 0 || ip->ref < 1)
     panic("ilock");
 
+  //printf("[ILOCK] Attempting to acquire sleeplock for inode inum=%d\n", ip->inum);
   acquiresleep(&ip->lock);
+  //printf("[ILOCK] Acquired sleeplock for inode inum=%d\n", ip->inum);
 
   if(ip->valid == 0){
     bp = bread(ip->dev, IBLOCK(ip->inum, sb));
@@ -323,7 +325,7 @@ iunlock(struct inode *ip)
 {
   if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
     panic("iunlock");
-
+  //printf("[ILOCK] Releasing sleeplock for inode inum=%d\n", ip->inum);
   releasesleep(&ip->lock);
 }
 
@@ -717,4 +719,83 @@ struct inode*
 nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
+}
+
+// Is the directory dp empty except for "." and ".." ?
+static int
+isdirempty(struct inode *dp)
+{
+  int off;
+  struct dirent de;
+  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
+    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+      panic("isdirempty: readi");
+    if(de.inum != 0)
+      return 0;
+  }
+  return 1;
+}
+
+int kernel_unlink(char *path) {
+  struct inode *ip, *dp;
+  char name[DIRSIZ];
+  uint off;
+  struct dirent de;
+
+  begin_op(); // Start journaling transaction
+
+  // Look up parent directory and the file name
+  dp = nameiparent(path, name);
+  if(dp == 0)
+    goto fail;
+  ilock(dp);
+
+  // Find inode and offset for removal
+  ip = dirlookup(dp, name, &off);
+  if(ip == 0)
+    goto bad;
+
+  ilock(ip);
+
+  // Prevent unlinking "." or ".."
+  if(namecmp(name, ".") == 0 || namecmp(name, "..") == 0)
+    goto bad_both;
+
+  if(ip->nlink < 1)
+    panic("unlink: nlink < 1");
+  // Prevent unlinking non-empty directories
+  if(ip->type == T_DIR && !isdirempty(ip)) {
+    iunlockput(ip);
+    goto bad;
+  }
+
+  // Overwrite directory entry with zeros (delete from parent)
+  memset(&de, 0, sizeof(de));
+  if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+    panic("unlink: writei");
+
+  // If a directory, decrement parent link count
+  if(ip->type == T_DIR){
+    dp->nlink--;
+    iupdate(dp);
+  }
+
+  iunlockput(dp);
+
+  // Remove one link from target file inode
+  ip->nlink--;
+  iupdate(ip);
+  iunlockput(ip);
+
+  end_op(); // End transaction
+  return 0;
+
+bad_both:
+  iunlockput(ip);
+  iunlockput(dp);
+bad:
+  iunlockput(dp);
+fail:
+  end_op();
+  return -1;
 }

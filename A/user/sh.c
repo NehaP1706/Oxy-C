@@ -1,3 +1,11 @@
+#include "user.h"
+#include "kernel/fcntl.h"
+
+// Debug print to confirm sh.c loaded
+// int sh_debug_loaded() {
+//   printf("sh: file loaded\n");
+//   return 0;
+// }
 // Shell.
 
 #include "kernel/types.h"
@@ -74,6 +82,9 @@ runcmd(struct cmd *cmd)
 
   case EXEC:
     ecmd = (struct execcmd*)cmd;
+    // for(int i = 0; i < MAXARGS && ecmd->argv[i]; i++) {
+    //   printf("[sh] exec argv[%d]=%p, string='%s'\n", i, ecmd->argv[i], ecmd->argv[i]);
+    // }
     if(ecmd->argv[0] == 0)
       exit(1);
     exec(ecmd->argv[0], ecmd->argv);
@@ -134,7 +145,8 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  write(2, "$ ", 2);
+  write(2, "$ ", 2); // Also print to stderr for compatibility
+  // Try to flush output (if supported)
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
@@ -155,6 +167,8 @@ main(void)
       break;
     }
   }
+
+  printf("sh: entered main\n");
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
@@ -439,8 +453,14 @@ parseexec(char **ps, char *es)
       break;
     if(tok != 'a')
       panic("syntax");
-    cmd->argv[argc] = q;
-    cmd->eargv[argc] = eq;
+    int len = eq - q;
+    char *arg = malloc(len + 1);
+    if(!arg)
+      panic("malloc failed");
+    memmove(arg, q, len);
+    arg[len] = '\0';
+    cmd->argv[argc] = arg;
+    cmd->eargv[argc] = arg + len;
     argc++;
     if(argc >= MAXARGS)
       panic("too many args");

@@ -26,12 +26,18 @@ void *chef_thread(void *arg) {
             // mark that this chef will accept payment for 'toPay'
             pthread_mutex_unlock(&lock);
 
+            // Lock payment_mutex to serialize accepting payment
+            pthread_mutex_lock(&payment_mutex);
+
             // perform accept payment (2 seconds) - atomic action
             log_chef_action(chef_id, "accepts payment");
             sleep(2);
 
-            // signal customer that payment accepted -> they can leave
+            // signal customer payment accepted
             sem_post(&toPay->sem_payment_ok);
+
+            // Unlock payment_mutex so next chef can accept payment
+            pthread_mutex_unlock(&payment_mutex);
 
             // after finishing payment, continue loop
             continue;
@@ -46,11 +52,13 @@ void *chef_thread(void *arg) {
             // signal customer to start getcake concurrently
             sem_post(&toBake->sem_served);
 
-            // Chef bakes (2 seconds)
+            // wait for customer's signal to start baking
+            sem_wait(&toBake->sem_start_bake);
+
             log_chef_action(chef_id, "bakes");
             sleep(2);
 
-            // baking finished, inform customer that cake is ready
+            // baking finished, inform customer cake ready
             sem_post(&toBake->sem_bake_done);
 
             continue;
@@ -142,7 +150,10 @@ void *customer_thread(void *arg) {
     log_customer_action(c->id, "requests cake");
     sleep(1);
 
-    // wait for chef to complete baking (chef posts sem_bake_done after 2s)
+    // signal chef to start baking
+    sem_post(&c->sem_start_bake);
+
+    // wait for chef to complete baking (2 sec)
     sem_wait(&c->sem_bake_done);
 
     // after cake finished -> pay (1s)

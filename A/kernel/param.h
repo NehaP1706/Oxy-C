@@ -1,6 +1,11 @@
 #define NPROC        64  // maximum number of processes
-#define NCPU          8  // maximum number of CPUs
+#ifndef NCPU
+#define NCPU 8
+#endif
 #define NOFILE       16  // open files per process
+#ifndef NOFILE
+#define NOFILE 16
+#endif
 #define NFILE       100  // open files per system
 #define NINODE       50  // maximum number of active i-nodes
 #define NDEV         10  // maximum major device number

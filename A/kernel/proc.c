@@ -155,6 +155,14 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  int reclaimed = 0;
+  for (int i = 0; i < 1024; i++) {
+      if (p->swap_slots_used[i]) {
+          p->swap_slots_used[i] = 0;
+          reclaimed++;
+      }
+  }
+printf("[pid %d] SWAPCLEANUP reclaimed=%d\n", p->pid, reclaimed);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -192,7 +200,7 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-
+  sfence_vma();
   // map the trapframe page just below the trampoline page, for
   // trampoline.S.
   if(mappages(pagetable, TRAPFRAME, PGSIZE,
@@ -201,7 +209,7 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-
+  sfence_vma();
   return pagetable;
 }
 
@@ -231,7 +239,7 @@ userinit(void)
   release(&p->lock);
 }
 
-// Shrink user memory by n bytes.
+// Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
 growproc(int n)
@@ -241,6 +249,9 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
+    if(sz + n > TRAPFRAME) {
+      return -1;
+    }
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
       return -1;
     }
@@ -328,6 +339,21 @@ kexit(int status)
   if(p == initproc)
     panic("init exiting");
 
+
+  // // Swap file cleanup and logging
+  // int freed_slots = 0;
+  // if(p->swap_file) {
+  //   for(int i=0; i<1024; i++) {
+  //     if(p->swap_slots_used[i]) freed_slots++;
+  //     p->swap_slots_used[i] = 0;
+  //     p->swap_va[i] = 0;
+  //   }
+  //   fileclose(p->swap_file);
+  //   p->swap_file = 0;
+  //   kernel_unlink(p->swapfilename);
+  //   printf("[pid %d] SWAPCLEANUP freed_slots=%d\n", p->pid, freed_slots);
+  // }
+
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
@@ -352,6 +378,7 @@ kexit(int status)
   
   acquire(&p->lock);
 
+  //printf("[pid %d] EXIT: proc=%s status=%d epc=0x%lx sp=0x%lx\n", p->pid, p->name, status, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
   p->xstate = status;
   p->state = ZOMBIE;
 
@@ -441,6 +468,7 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        //printf("[pid %d] SCHED: proc=%s state=RUNNING epc=0x%lx sp=0x%lx\n", p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
@@ -553,6 +581,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   p->chan = chan;
+  //printf("[pid %d] SLEEP: proc=%s state=SLEEPING epc=0x%lx sp=0x%lx\n", p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
   p->state = SLEEPING;
 
   sched();
@@ -576,7 +605,8 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;
+  //printf("[pid %d] WAKEUP: proc=%s state=RUNNABLE epc=0x%lx sp=0x%lx\n", p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
+  p->state = RUNNABLE;
       }
       release(&p->lock);
     }
@@ -673,7 +703,7 @@ procdump(void)
   struct proc *p;
   char *state;
 
-  printf("\n");
+  ////printf("\n");
   for(p = proc; p < &proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
@@ -682,6 +712,6 @@ procdump(void)
     else
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
-    printf("\n");
+    //printf("\n");
   }
 }

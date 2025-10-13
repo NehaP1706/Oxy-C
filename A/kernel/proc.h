@@ -1,3 +1,39 @@
+// Fix: include param.h for NCPU, file.h for NOFILE
+#ifndef NCPU
+#define NCPU 8
+#endif
+#ifndef NOFILE
+#define NOFILE 16
+#endif
+#define NOFILE 16
+#include "param.h"
+#ifndef PROC_H
+#define PROC_H
+#include "types.h"
+#include "vm.h"
+#ifndef NCPU
+#define NCPU 8
+#endif
+#ifndef NOFILE
+#define NOFILE 16
+#endif
+#include "param.h"
+#include "file.h"
+#include "spinlock.h"
+// If NOFILE is still undefined, define it here
+#ifndef NOFILE
+#define NOFILE 16
+#endif
+// If NOFILE is still undefined, define it here again
+#ifndef NOFILE
+#define NOFILE 16
+#endif
+#include "param.h" // For NCPU
+// If NCPU is still undefined, define it here
+#ifndef NCPU
+#define NCPU 8
+#endif
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -104,4 +140,27 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  char exec_path[64];          // Full executable path for demand paging
+  // Demand paging and swapping fields
+  // Resident pages FIFO queue (array of virtual addresses)
+  uint64 resident_pages[1024]; // Max 1024 resident pages
+  int resident_count;          // Number of resident pages
+  int next_fifo_seq;           // Next FIFO sequence number
+  int page_seq[1024];          // Sequence number for each resident page
+  int page_dirty[1024];        // Dirty bit for each resident page
+
+  // Swap area
+  struct file *swap_file;      // Per-process swap file pointer
+  int swap_slots_used[1024];   // Bitmap: 1 if slot used, 0 if free
+  uint64 swap_va[1024];        // VA of page in each swap slot
+  int swap_count;              // Number of swapped pages
+  char swapfilename[32];       // Swap file name
+
+  // Lazy mapping info for demand paging
+  uint64 text_start, text_end;
+  uint64 data_start, data_end;
+  uint64 heap_start;
+  uint64 stack_top;
 };
+
+#endif

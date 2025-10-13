@@ -19,6 +19,7 @@
 extern pthread_mutex_t lock;
 extern pthread_cond_t chef_cv;     // chefs wait on this if nothing to do
 extern pthread_cond_t standing_cv; // standing customers wait for seat
+extern pthread_mutex_t payment_mutex;
 extern int current_customers; // overall count inside bakery (max MAX_CAPACITY)
 extern int sofa_occupied;     // current occupied sofa seats (reserved until customer leaves)
 
@@ -29,6 +30,7 @@ typedef struct Customer {
     sem_t sem_served;        // posted by chef when starting to serve (so customer can 'getcake')
     sem_t sem_bake_done;     // posted by chef when baking is finished
     sem_t sem_payment_ok;    // posted by chef when payment accepted (allowed to leave)
+    sem_t sem_start_bake;
     struct Customer *next;   // for queue linking
 } Customer;
 

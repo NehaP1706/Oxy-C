@@ -34,6 +34,19 @@ argfd(int n, int *pfd, struct file **pf)
   return 0;
 }
 
+extern struct {
+  struct spinlock lock;
+  struct inode inode[NINODE];
+} itable;
+
+void dump_inodes(void) {
+  for (int i = 0; i < NINODE; i++) {
+    struct inode *ip = &itable.inode[i];
+    printf("inode %d: ref=%d, valid=%d, sleeplock locked=%d\n",
+           ip->inum, ip->ref, ip->valid, holdingsleep(&ip->lock));
+  }
+}
+
 // Allocate a file descriptor for the given file.
 // Takes over file reference from caller on success.
 static int
@@ -79,19 +92,26 @@ sys_read(void)
   return fileread(f, p, n);
 }
 
-uint64
-sys_write(void)
+uint64 sys_write(void)
 {
   struct file *f;
   int n;
   uint64 p;
-  
+
   argaddr(1, &p);
   argint(2, &n);
-  if(argfd(0, 0, &f) < 0)
-    return -1;
 
-  return filewrite(f, p, n);
+  if(argfd(0, 0, &f) < 0) {
+    //printf("[sys_write] ERROR: invalid fd\n");
+    return -1;
+  }
+
+  ////printf("[sys_write] p=0x%lx n=%d\n", p, n);
+
+  uint64 ret = filewrite(f, p, n);
+
+  ////printf("[sys_write] wrote %ld bytes\n", ret);
+  return ret;
 }
 
 uint64
@@ -242,45 +262,61 @@ bad:
   return -1;
 }
 
-static struct inode*
+struct inode*
 create(char *path, short type, short major, short minor)
 {
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
-  if((dp = nameiparent(path, name)) == 0)
+  // Debug trace
+  //printf("[create] ENTRY path=%s\n", path);
+
+  if((dp = nameiparent(path, name)) == 0) {
+    //printf("[create] nameiparent returned 0 for path=%s\n", path);
     return 0;
+  }
 
   ilock(dp);
+  //printf("[create] ilock on parent inode done, parent inum=%d name=%s\n", dp->inum, name);
 
   if((ip = dirlookup(dp, name, 0)) != 0){
+    //printf("[create] dirlookup found existing inode in parent for name=%s inum=%d\n", name, ip->inum);
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE)) {
+      //printf("[create] existing inode is file/device, returning existing inode inum=%d\n", ip->inum);
       return ip;
+    }
     iunlockput(ip);
+    //printf("[create] existing inode not suitable, returning 0\n");
     return 0;
   }
 
+    //dump_inodes();
+
   if((ip = ialloc(dp->dev, type)) == 0){
+    //printf("[create] ialloc failed for parent dev=%d\n", dp->dev);
     iunlockput(dp);
     return 0;
   }
+  //printf("[create] ialloc returned inode inum=%d\n", ip->inum);
 
+  //printf("[DEBUG] About to ilock inode inum=%d for swap file\n", ip->inum);
   ilock(ip);
+  //printf("[DEBUG] Acquired ilock on inode inum=%d\n", ip->inum);
+
   ip->major = major;
   ip->minor = minor;
   ip->nlink = 1;
   iupdate(ip);
+  //printf("[create] iupdate succeeded for inode inum=%d\n", ip->inum);
 
-  if(type == T_DIR){  // Create . and .. entries.
-    // No ip->nlink++ for ".": avoid cyclic ref count.
-    if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
-      goto fail;
-  }
-
-  if(dirlink(dp, name, ip->inum) < 0)
+  if (dirlink(dp, name, ip->inum) < 0) {
+    //printf("[create] dirlink failed for name=%s inum=%d\n", name, ip->inum);
     goto fail;
+  }
+  //printf("[create] dirlink succeeded for name=%s inum=%d\n", name, ip->inum);
+
 
   if(type == T_DIR){
     // now that success is guaranteed:
@@ -290,6 +326,7 @@ create(char *path, short type, short major, short minor)
 
   iunlockput(dp);
 
+  //printf("[create] returning inode inum=%d for path=%s\n", ip->inum, path);
   return ip;
 
  fail:

@@ -1,3 +1,5 @@
+#include "defs.h"
+
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -126,6 +128,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_memstat] sys_memstat,
 };
 
 void

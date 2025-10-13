@@ -4,6 +4,7 @@
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t chef_cv = PTHREAD_COND_INITIALIZER;     // chefs wait on this if nothing to do
 pthread_cond_t standing_cv = PTHREAD_COND_INITIALIZER; // standing customers wait for seat
+pthread_mutex_t payment_mutex = PTHREAD_MUTEX_INITIALIZER;
 int current_customers = 0; // overall count inside bakery (max MAX_CAPACITY)
 int sofa_occupied = 0;     // current occupied sofa seats (reserved until customer leaves)
 
@@ -85,6 +86,7 @@ int main() {
         sem_init(&c->sem_served, 0, 0);
         sem_init(&c->sem_bake_done, 0, 0);
         sem_init(&c->sem_payment_ok, 0, 0);
+        sem_init(&c->sem_start_bake, 0, 0);
         c->next = NULL;
         current_customers++;
 

@@ -51,6 +51,7 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
+  //printf("[trap] ENTER: scause=0x%lx sepc=0x%lx stval=0x%lx pid=%d proc=%s entry=0x%lx sp=0x%lx\n", r_scause(), r_sepc(), r_stval(), p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
   if(r_scause() == 8){
     // system call
 
@@ -68,13 +69,22 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
+  } else if((r_scause() == 15 || r_scause() == 13 || r_scause() == 12)) {
+    // page fault: handle demand paging, swapping, replacement
+    uint64 va = r_stval();
+
+    int access_type = (r_scause() == 13) ? 1 : 0; // 1=write, 0=read/exec
+    if(r_scause() == 12) {
+      access_type = 2; // treat as exec/read
+    }
+    ////printf("[trap] PAGEFAULT: scause=0x%lx sepc=0x%lx stval=0x%lx pid=%d proc=%s entry=0x%lx sp=0x%lx\n", r_scause(), r_sepc(), r_stval(), p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
+    if(!handle_page_fault(p, va, access_type)) {
+      // If handler returns 0, kill process
+      setkilled(p);
+    }
   } else {
-    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
-    setkilled(p);
+  printf("[trap] UNEXPECTED: scause=0x%lx sepc=0x%lx stval=0x%lx pid=%d proc=%s entry=0x%lx sp=0x%lx\n", r_scause(), r_sepc(), r_stval(), p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
+  setkilled(p);
   }
 
   if(killed(p))

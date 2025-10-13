@@ -1,5 +1,13 @@
+// Ensure typedefs and page table types are available
+#ifndef DEFS_H
+#define DEFS_H
+
+#include "types.h"
+#include "riscv.h"
 struct buf;
 struct context;
+// memstat syscall
+uint64 sys_memstat(void);
 struct file;
 struct inode;
 struct pipe;
@@ -8,6 +16,9 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+
+// Demand paging handler
+int handle_page_fault(struct proc *p, uint64 va, int access_type);
 
 // bio.c
 void            binit(void);
@@ -54,6 +65,7 @@ void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
 void            ireclaim(int);
+struct inode*   create(char *path, short type, short major, short minor);
 
 // kalloc.c
 void*           kalloc(void);
@@ -183,3 +195,5 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+#endif

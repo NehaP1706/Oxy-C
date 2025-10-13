@@ -1,3 +1,6 @@
+
+#ifndef XV6_ELF_H
+#define XV6_ELF_H
 // Format of an ELF executable file
 
 #define ELF_MAGIC 0x464C457FU  // "\x7FELF" in little endian
@@ -36,7 +39,10 @@ struct proghdr {
 // Values for Proghdr type
 #define ELF_PROG_LOAD           1
 
+
 // Flag bits for Proghdr flags
 #define ELF_PROG_FLAG_EXEC      1
+
+#endif // XV6_ELF_H
 #define ELF_PROG_FLAG_WRITE     2
 #define ELF_PROG_FLAG_READ      4

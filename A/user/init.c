@@ -24,6 +24,7 @@ main(void)
   dup(0);  // stderr
 
   for(;;){
+    // printf("init: before fork for sh\n");
     printf("init: starting sh\n");
     pid = fork();
     if(pid < 0){
@@ -31,8 +32,9 @@ main(void)
       exit(1);
     }
     if(pid == 0){
+      // printf("init: about to exec sh\n");
       exec("sh", argv);
-      printf("init: exec sh failed\n");
+      // printf("init: exec sh returned\n");
       exit(1);
     }
 
