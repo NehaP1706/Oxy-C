@@ -73,10 +73,11 @@ usertrap(void)
     // page fault: handle demand paging, swapping, replacement
     uint64 va = r_stval();
 
-    int access_type = (r_scause() == 13) ? 1 : 0; // 1=write, 0=read/exec
-    if(r_scause() == 12) {
-      access_type = 2; // treat as exec/read
-    }
+    // RISC-V scause codes: 12=instruction page fault, 13=load page fault,
+    // 15=store/AMO page fault. Treat store (15) as write access.
+    int access_type = 0; // 0=read/load, 1=write/store, 2=exec
+    if (r_scause() == 15) access_type = 1; // store/page-fault on write
+    if (r_scause() == 12) access_type = 2; // instruction (exec)
     ////printf("[trap] PAGEFAULT: scause=0x%lx sepc=0x%lx stval=0x%lx pid=%d proc=%s entry=0x%lx sp=0x%lx\n", r_scause(), r_sepc(), r_stval(), p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
     if(!handle_page_fault(p, va, access_type)) {
       // If handler returns 0, kill process

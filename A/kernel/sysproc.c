@@ -28,7 +28,7 @@ uint64 sys_memstat(void) {
     stat.pages[count].swap_slot = -1;
     count++;
   }
-  for(int i=0; i<1024 && count<MAX_PAGES_INFO; i++) {
+  for(int i=0; i<SWAP_SLOTS && count<MAX_PAGES_INFO; i++) {
     if(p->swap_slots_used[i]) {
       stat.pages[count].va = p->swap_va[i];
       stat.pages[count].state = SWAPPED;
@@ -42,7 +42,7 @@ uint64 sys_memstat(void) {
   for(uint64 va=0; va<p->sz && count<MAX_PAGES_INFO; va+=PGSIZE) {
     int mapped = 0;
     for(int i=0; i<p->resident_count; i++) if(p->resident_pages[i] == va) mapped=1;
-    for(int i=0; i<1024; i++) if(p->swap_slots_used[i] && p->swap_va[i]==va) mapped=1;
+  for(int i=0; i<SWAP_SLOTS; i++) if(p->swap_slots_used[i] && p->swap_va[i]==va) mapped=1;
     if(!mapped) {
       stat.pages[count].va = va;
       stat.pages[count].state = UNMAPPED;

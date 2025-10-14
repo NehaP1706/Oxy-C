@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+// for kernel_unlink()
+#include "fs.h"
 
 struct cpu cpus[NCPU];
 
@@ -146,6 +148,21 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Initialize demand-paging and swap bookkeeping fields so a freshly
+  // allocated proc doesn't inherit stale data when reused.
+  p->resident_count = 0;
+  p->next_fifo_seq = 0;
+  p->swap_file = 0;
+  p->swap_count = 0;
+  for (int i = 0; i < SWAP_SLOTS; i++) {
+    p->resident_pages[i] = 0;
+    p->page_seq[i] = 0;
+    p->page_dirty[i] = 0;
+    p->swap_slots_used[i] = 0;
+    p->swap_va[i] = 0;
+  }
+  p->swapfilename[0] = '\0';
+
   return p;
 }
 
@@ -156,13 +173,22 @@ static void
 freeproc(struct proc *p)
 {
   int reclaimed = 0;
-  for (int i = 0; i < 1024; i++) {
-      if (p->swap_slots_used[i]) {
-          p->swap_slots_used[i] = 0;
-          reclaimed++;
-      }
+  for (int i = 0; i < SWAP_SLOTS; i++) {
+    if (p->swap_slots_used[i]) {
+      p->swap_slots_used[i] = 0;
+      reclaimed++;
+    }
   }
-printf("[pid %d] SWAPCLEANUP reclaimed=%d\n", p->pid, reclaimed);
+  if (p->swap_file) {
+    fileclose(p->swap_file);
+    p->swap_file = 0;
+    if (p->swapfilename[0]) {
+      begin_op();
+      kernel_unlink(p->swapfilename);
+      end_op();
+    }
+  }
+  printf("[pid %d] SWAPCLEANUP freed_slots=%d\n", p->pid, reclaimed);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -252,7 +278,11 @@ growproc(int n)
     if(sz + n > TRAPFRAME) {
       return -1;
     }
-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+    // Initially map new heap pages read-only (no PTE_W). The first user
+    // write will trap, and the page-fault handler will remap the page
+    // with write permissions and mark it dirty. This lets us track
+    // per-page dirty state without hardware dirty bits.
+    if((sz = uvmalloc(p->pagetable, sz, sz + n, 0)) == 0) {
       return -1;
     }
   } else if(n < 0){
@@ -283,6 +313,27 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  // Populate child's resident set from parent. uvmcopy allocated physical
+  // pages and mapped them into the child's pagetable; reflect those
+  // mappings in the child's resident bookkeeping arrays.
+  np->resident_count = 0;
+  for (int i = 0; i < p->resident_count; i++) {
+    uint64 va = p->resident_pages[i];
+    if (va == 0) continue;
+    // Confirm the child's pagetable has a valid mapping for this va.
+    pte_t *cpte = walk(np->pagetable, va, 0);
+    if (cpte && (*cpte & PTE_V)) {
+      int idx = np->resident_count;
+      if (idx < SWAP_SLOTS) {
+        np->resident_pages[idx] = va;
+        np->page_seq[idx] = np->next_fifo_seq++;
+        // Child inherits the dirty state of parent for this page.
+        np->page_dirty[idx] = p->page_dirty[i];
+        np->resident_count++;
+      }
+    }
+  }
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -361,6 +412,24 @@ kexit(int status)
       fileclose(f);
       p->ofile[fd] = 0;
     }
+  }
+
+  // Swap file cleanup: close and unlink per-process swap file and
+  // count reclaimed slots.
+  if (p->swap_file) {
+    int reclaimed = 0;
+    for (int i = 0; i < SWAP_SLOTS; i++) {
+      if (p->swap_slots_used[i]) reclaimed++;
+      p->swap_slots_used[i] = 0;
+      p->swap_va[i] = 0;
+    }
+    fileclose(p->swap_file);
+    p->swap_file = 0;
+    if (p->swapfilename[0]) {
+      kernel_unlink(p->swapfilename);
+      p->swapfilename[0] = '\0';
+    }
+    printf("[pid %d] SWAPCLEANUP reclaimed=%d\n", p->pid, reclaimed);
   }
 
   begin_op();

@@ -112,6 +112,9 @@ int kexec(char *path, char **argv)
       //printf("[exec] ERROR: failed to read program header for %s\n", path);
       goto bad;
     }
+    // Debug: print program header fields to diagnose missing segments
+    printf("[exec] ph[%d]: type=%d flags=0x%x off=0x%lx vaddr=0x%lx filesz=0x%lx memsz=0x%lx\n",
+           i, ph.type, ph.flags, ph.off, ph.vaddr, ph.filesz, ph.memsz);
     if(ph.type != ELF_PROG_LOAD)
       continue;
     if(ph.memsz < ph.filesz) {
@@ -172,13 +175,15 @@ int kexec(char *path, char **argv)
   //printf("[exec] create returned swapip=0x%lx\n", (uint64)swapip);
 
   if(swapip == 0) {
-    //end_op();
-    //printf("[exec] ERROR: create failed for swap %s\n", swapname);
     goto bad;
   }
 
-  iunlockput(swapip);
+  // Keep the inode referenced; the file structure will hold and
+  // later close/unlink it. Do not iput() here.
+  iunlock(swapip);
   end_op();
+
+  printf("[exec] swapfile created OK: %s (inum=%d)\n", swapname, swapip->inum);
 
   //ilock(ip);
 
@@ -189,13 +194,60 @@ int kexec(char *path, char **argv)
   p->swap_file->writable = 1;
   p->swap_count = 0;
   safestrcpy(p->swapfilename, swapname, sizeof(p->swapfilename));
-  for(int si=0; si<1024; si++) {
+  for(int si=0; si<SWAP_SLOTS; si++) {
     p->swap_slots_used[si] = 0;
     p->swap_va[si] = 0;
+  }
+  // Preallocate a modest number of swap pages to reserve space and
+  // fail early if the filesystem is low on space. Use chunked writes
+  // to respect the journaling transaction limits.
+  // Reduce preallocation to avoid exhausting the filesystem on small images.
+  // If you still run out of swap, increase fs.img size instead of preallocating.
+  int prealloc_pages = 0; // disabled: avoid filling small fs images
+  if (prealloc_pages > 0) {
+    char *z = kalloc();
+    if (z) {
+      memset(z, 0, PGSIZE);
+      int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+      for (int sp = 0; sp < prealloc_pages; sp++) {
+        int written = 0;
+        while (written < PGSIZE) {
+          int to_write = PGSIZE - written;
+          if (to_write > max) to_write = max;
+          begin_op();
+          ilock(swapip);
+          int r = writei(swapip, 0, (uint64)(z + written), sp * PGSIZE + written, to_write);
+          iunlock(swapip);
+          end_op();
+          if (r != to_write) {
+            // Preallocation failed; likely filesystem is full. Log and stop trying.
+            printf("[exec] swap prealloc failed at page %d wrote=%d expected=%d (stop prealloc)\n", sp, r, to_write);
+            sp = prealloc_pages; // break outer loop
+            break;
+          }
+          written += r;
+        }
+      }
+      kfree(z);
+    }
+    printf("[exec] swap prealloc done (or skipped)\n");
+  } else {
+    printf("[exec] swap prealloc disabled (prealloc_pages=0)\n");
+  }
+  // Reset resident set and FIFO counters to remove stale entries from
+  // previous image. Exec replaces the process memory, so resident
+  // bookkeeping must be cleared.
+  p->resident_count = 0;
+  p->next_fifo_seq = 0;
+  for (int ri = 0; ri < SWAP_SLOTS; ri++) {
+    p->resident_pages[ri] = 0;
+    p->page_seq[ri] = 0;
+    p->page_dirty[ri] = 0;
   }
   //end_op();
   // Log lazy mapping
   printf("[pid %d] INIT-LAZYMAP text=[0x%lx,0x%lx) data=[0x%lx,0x%lx) heap_start=0x%lx stack_top=0x%lx\n", p->pid, text_start, text_end, data_start, data_end, p->heap_start, p->stack_top);
+  printf("[exec] before uvmalloc for stack sz=%lu\n", sz);
   // iunlockput(ip);
   // end_op();
   // ip = 0;
@@ -208,10 +260,13 @@ int kexec(char *path, char **argv)
   // Use the rest as the user stack.
   sz = PGROUNDUP(sz);
   uint64 sz1;
+  // Map stack pages writable so exec can copy argv/ustack into them.
+  // User writes will still trap later if pages are remapped or protections change.
   if((sz1 = uvmalloc(pagetable, sz, sz + (USERSTACK+1)*PGSIZE, PTE_W)) == 0) {
     //printf("[exec] ERROR: uvmalloc failed for stack for %s\n", path);
     goto bad;
   }
+  printf("[exec] uvmalloc stack OK new sz=%lu\n", sz1);
   sz = sz1;
   sp = sz;
   p->sz = sz;
@@ -232,6 +287,8 @@ int kexec(char *path, char **argv)
       //printf("[exec] ERROR: lazy_copyout failed for argv[%ld] for %s\n", argc, path);
       goto bad;
     }
+
+    printf("[exec] copied argv[%ld] to 0x%lx ('%s')\n", argc, sp, argv[argc]);
 
     // After copying each argument string, dump physical mem
     // printf("[DEBUG] Copied argv[%ld] to va=0x%lx\n", argc, sp);

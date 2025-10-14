@@ -2,203 +2,108 @@
 #include "proc.h"
 #include "vm.h"
 #include "defs.h"
+#include "param.h"
+#include "memlayout.h"
+#include "elf.h"
 
-int segment_perms(struct proc *p, uint64 va) {
-  int perms;
-  va = PGROUNDUP(va);
-  if (va >= p->text_start && va < p->text_end) {
-    perms = PTE_U | PTE_R | PTE_X;
-    //printf("[segment_perms] va=0x%lx: TEXT perms=0x%x\n", va, perms);
-    return perms;
-  }
-  if (va >= p->data_start && va < p->data_end) {
-    perms = PTE_U | PTE_R | PTE_W;
-    //printf("[segment_perms] va=0x%lx: DATA perms=0x%x\n", va, perms);
-    return perms;
-  }
-  if (va >= p->heap_start && va < p->sz) {
-    perms = PTE_U | PTE_R | PTE_W;
-    //printf("[segment_perms] va=0x%lx: HEAP perms=0x%x\n", va, perms);
-    return perms;
-  }
-  if (va >= (p->stack_top - USERSTACK*PGSIZE) && va < p->stack_top) {
-    perms = PTE_U | PTE_R | PTE_W;
-    //printf("[segment_perms] va=0x%lx: STACK perms=0x%x\n", va, perms);
-    return perms;
-  }
-  perms = PTE_U | PTE_R;
-  //printf("[segment_perms] va=0x%lx: DEFAULT perms=0x%x\n", va, perms);
-  return perms;
-}
-
-// Swap-in disk read placeholder (to implement)
-char *swap_read_page(struct proc *p, int slot)
-{
-    uint offset = slot * PGSIZE;
-    char *mem = kalloc();
-    if (mem == 0)
-        return 0;
-
-    // Set file offset for reading the correct slot.
-    p->swap_file->off = offset;
-
-    int n = fileread(p->swap_file, (uint64)mem, PGSIZE);
-    if (n != PGSIZE) {
-        kfree(mem);
-        return 0;
-    }
-
-    return mem;  // caller responsible for mapping and freeing mem
-}
-
-// Allocates and maps a single user page at va, logs ALLOC/RESIDENT
-int alloc_user_page(pagetable_t pagetable, uint64 va) {
-  void *mem = kalloc();
-  if (!mem) {
-    //printf("[alloc_user_page] kalloc failed for va=0x%lx\n", va);
-    return -1;
-  }
-  memset(mem, 0, PGSIZE);
-  struct proc* p = myproc();
-  int perm = segment_perms(p, va) | PTE_V;
-  //printf("[alloc_user_page] Mapping va=0x%lx pa=0x%lx perms=0x%x\n", va, (uint64)mem, perm);
-  if (mappages(pagetable, va, PGSIZE, (uint64)mem, perm) != 0) {
-    //printf("[alloc_user_page] mappages failed for va=0x%lx\n", va);
-    kfree(mem);
-    return -1;
-  }
-  sfence_vma();
-  printf("[pid %d] ALLOC va=0x%lx\n", p ? p->pid : -1, va);
-  if (p && p->resident_count < 1024) {
-    int idx = p->resident_count;
-    p->resident_pages[idx] = va;
-    p->page_seq[idx] = p->next_fifo_seq++;
-    p->page_dirty[idx] = 0;
-    p->resident_count++;
-    printf("[pid %d] RESIDENT va=0x%lx seq=%d\n", p->pid, va, p->page_seq[idx]);
-  }
-  return 0;
-}
-
-// Like copyout, but allocates page if needed
+// Return permission bits appropriate for the segment containing va.
 int
-lazy_copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
+segment_perms(struct proc *p, uint64 va)
 {
-  uint64 n, va0, pa0;
-  pte_t *pte;
-
-  while (len > 0) {
-    va0 = PGROUNDDOWN(dstva);
-    if (va0 >= MAXVA)
-      return -1;
-
-    // Try to get a physical address; handle page fault if unmapped.
-    pa0 = walkaddr(pagetable, va0);
-    if (pa0 == 0) {
-      // Try to bring in page by fault handler. Replace this
-      // with your actual handler name, e.g. handle_page_fault.
-      if ((pa0 = handle_page_fault(myproc(), va0, 1)) == 0)
-        return -1;
-    }
-
-    pte = walk(pagetable, va0, 0);
-    // Forbid to write memory that's not marked writable.
-    if (!pte || ((*pte & PTE_W) == 0))
-      return -1;
-
-    n = PGSIZE - (dstva - va0);
-    if (n > len)
-      n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
-
-    struct proc *p = myproc();
-    if (p) {
-      for (int i = 0; i < p->resident_count; i++) {
-        if (p->resident_pages[i] == va0) {
-          p->page_dirty[i] = 1;
-          break;
-        }
-      }
-    }
-
-    len -= n;
-    src += n;
-    dstva = va0 + PGSIZE;
-  }
-  return 0;
+  va = PGROUNDDOWN(va);
+  if (va >= p->text_start && va < p->text_end)
+    return PTE_U | PTE_R | PTE_X;
+  if (va >= p->data_start && va < p->data_end)
+    return PTE_U | PTE_R | PTE_W;
+  if (va >= p->heap_start && va < p->sz)
+    return PTE_U | PTE_R | PTE_W;
+  if (va >= (p->stack_top - USERSTACK*PGSIZE) && va < p->stack_top)
+    return PTE_U | PTE_R | PTE_W;
+  // Default: user-readable
+  return PTE_U | PTE_R;
 }
 
-#include "riscv.h" // For PGSIZE, PTE_W, PTE_U, PTE_R, etc.
-#include "elf.h" // For struct elfhdr, proghdr, ELF_PROG_LOAD
-#include "proc.h"
-#include "defs.h"
-
-// Demand paging, FIFO replacement, and swapping page fault handler
-// Returns 1 if handled, 0 if process should be killed
-
-int handle_page_fault(struct proc *p, uint64 va, int access_type) {
-  va = PGROUNDDOWN(va);
-
-  const char *access_str =
-  (access_type == 0) ? "read" :
-  (access_type == 1) ? "write" :
-  (access_type == 2) ? "exec" : "unknown";
-
-  printf("[pid %d] PAGEFAULT va=0x%lx access=%s", p->pid, va, access_str);
-
-  if (ismapped(p->pagetable, va)) {
-    pte_t *pte = walk(p->pagetable, va, 0);
-    int full_perms = segment_perms(p, va);
-    uint64 pteval = pte ? (uint64)(*pte) : 0;
-    if (pte && (((pteval & full_perms) != full_perms) || !(pteval & PTE_U))) {
-      uint64 oldpa = PTE2PA(*pte);
-      // uint oldflags = PTE_FLAGS(*pte);
-      // printf("[pid %d] REMAP: replacing pte=0x%lx oldpa=0x%lx oldflags=0x%x new_perms=0x%x va=0x%lx\n",
-      //       p->pid, pteval, oldpa, oldflags, full_perms, va);
-      void *newmem = kalloc();
-      if (!newmem) {
-        //printf("[pid %d] REMAP failed: kalloc returned 0\n", p->pid);
-        return 0;
-      }
-      memset(newmem, 0, PGSIZE);
-      if (oldpa)
-        memmove(newmem, (void*)oldpa, PGSIZE);
-      uint64 newpte = PA2PTE((uint64)newmem) | PTE_V | full_perms;
-      *pte = (pte_t)newpte;
-      sfence_vma();
-      if (oldpa)
-        kfree((void*)oldpa);
-      //printf("[pid %d] REMAP: completed va=0x%lx newpte=0x%lx\n", p->pid, va, newpte);
-      return 1;
+// Read a page-sized slot from the process's swap file into a newly
+// allocated kernel page and return the buffer, or 0 on error.
+char *
+swap_read_page(struct proc *p, int slot)
+{
+  if (!p || slot < 0 || slot >= SWAP_SLOTS) return 0;
+  if (!p->swap_file || !p->swap_file->ip) {
+    if (p->swapfilename[0]) {
+      struct inode *sip = namei(p->swapfilename);
+      if (!sip) return 0;
+      if (!p->swap_file) p->swap_file = filealloc();
+      if (!p->swap_file) { iunlockput(sip); return 0; }
+      p->swap_file->type = FD_INODE;
+      p->swap_file->ip = sip;
+      p->swap_file->readable = 1;
+      p->swap_file->writable = 1;
+    } else {
+      return 0;
     }
-    return 1;
   }
+
+  char *buf = kalloc();
+  if (!buf) return 0;
+
+  int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+  int read = 0;
+  while (read < PGSIZE) {
+    int to_read = PGSIZE - read;
+    if (to_read > max) to_read = max;
+    begin_op();
+    ilock(p->swap_file->ip);
+    int r = readi(p->swap_file->ip, 0, (uint64)(buf + read), slot * PGSIZE + read, to_read);
+    iunlock(p->swap_file->ip);
+    end_op();
+    if (r <= 0) {
+      kfree(buf);
+      return 0;
+    }
+    read += r;
+  }
+  return buf;
+}
+
+// Page-fault handler: determine cause/source and resolve the fault.
+int
+handle_page_fault(struct proc *p, uint64 va, int access_type)
+{
+  // access_type: 0=read/load, 1=write/store, 2=exec
+  char *access_str = (access_type == 0) ? "read" : (access_type == 1) ? "write" : "exec";
+  // Remember the original faulting address for logging, then align va to page base
+  uint64 reported_va = va;
+  va = PGROUNDDOWN(va);
+  // Print the PAGEFAULT prefix; following prints append cause and newline.
+  printf("[pid %d] PAGEFAULT va=0x%lx access=%s", p->pid, reported_va, access_str);
 
   // Determine cause/source
   int cause = -1; // 0=heap, 1=stack, 2=exec, 3=swap, 4=invalid
-  if (va >= p->text_start && va < p->text_end) {
-    printf(" cause=exec\n");
-    cause = 2;
-  } else if (va >= p->data_start && va < p->data_end) {
-    printf(" cause=exec\n");
-    cause = 2;
-  } else if (va >= p->heap_start && va < p->sz) {
-    printf(" cause=heap\n");
-    cause = 0;
-  } else if (va >= (p->stack_top - 2*USERSTACK*PGSIZE) && va < p->stack_top) {
-    printf(" cause=stack\n");
-    cause = 1;
-    //printf("[pid %d] STACKFAULT va=0x%lx sp=0x%lx\n", p->pid, va, p->trapframe ? p->trapframe->sp : 0);
-  } else {
-    // Check if swapped
-    for (int i = 0; i < 1024; i++) {
-      if (p->swap_slots_used[i] && p->swap_va[i] == va) {
-        printf(" cause=swap\n");
-        cause = 3;
-        break;
-      }
+  // If this VA was previously swapped out, handle it as a SWAP fault first.
+  for (int i = 0; i < SWAP_SLOTS; i++) {
+    if (p->swap_slots_used[i] && p->swap_va[i] == va) {
+      printf(" cause=swap\n");
+      cause = 3;
+      break;
     }
-    if (cause == -1) {
+  }
+
+  if (cause != 3) {
+    if (va >= p->text_start && va < p->text_end) {
+      printf(" cause=exec\n");
+      cause = 2;
+    } else if (va >= p->data_start && va < p->data_end) {
+      printf(" cause=exec\n");
+      cause = 2;
+    } else if (va >= p->heap_start && va < p->sz) {
+      printf(" cause=heap\n");
+      cause = 0;
+    } else if (va >= (p->stack_top - 2*USERSTACK*PGSIZE) && va < p->stack_top) {
+      printf(" cause=stack\n");
+      cause = 1;
+      //printf("[pid %d] STACKFAULT va=0x%lx sp=0x%lx\n", p->pid, va, p->trapframe ? p->trapframe->sp : 0);
+    } else {
       printf(" cause=invalid\n");
       printf("[pid %d] KILL invalid-access va=0x%lx access=%s\n", p->pid, va, access_str);
       return 0;
@@ -207,12 +112,14 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
 
   void *mem = 0;
 
-  if (p->resident_count >= 1024) {
+  if (p->resident_count >= SWAP_SLOTS) {
     // Resident pages full, evict first before allocating
-    printf("[pid %d] Resident pages full: running eviction\n", p->pid);
+    printf("[pid %d] MEMFULL\n", p->pid);
     
     int victim_idx = -1, min_seq = 0x7fffffff;
     for (int i = 0; i < p->resident_count; i++) {
+      // Skip empty entries.
+      if (p->resident_pages[i] == 0) continue;
       if (p->page_seq[i] < min_seq) {
         min_seq = p->page_seq[i];
         victim_idx = i;
@@ -225,41 +132,146 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
 
     uint64 victim_va = p->resident_pages[victim_idx];
     int dirty = p->page_dirty[victim_idx];
-    printf("[pid %d] VICTIM va=0x%lx seq=%d\n", p->pid, victim_va, min_seq);
-    printf("[pid %d] EVICT va=0x%lx state=%s\n", p->pid, victim_va, dirty ? "dirty" : "clean");
+    printf("[pid %d] VICTIM va=0x%lx seq=%d algo=FIFO\n", p->pid, victim_va, min_seq);
+    printf("[pid %d] EVICT  va=0x%lx state=%s\n", p->pid, victim_va, dirty ? "dirty" : "clean");
 
-    if (dirty) {
+    // If the page is clean and has a valid executable/data backing,
+    // we can discard it (no need to write to swap). Otherwise, write
+    // it out to the per-process swap file.
+    int has_exec_backing = 0;
+    if (!dirty) {
+      if ((victim_va >= p->text_start && victim_va < p->text_end) ||
+          (victim_va >= p->data_start && victim_va < p->data_end)) {
+        has_exec_backing = 1;
+      }
+    }
+
+    if (!dirty && has_exec_backing) {
+      // Clean page with executable/data backing: discard the page.
+      printf("[pid %d] DISCARD va=0x%lx\n", p->pid, victim_va);
+      // Unmap and free the physical page
+      uvmunmap(p->pagetable, victim_va, 1, 1);
+    } else {
+      // Need to write page to swap (dirty or clean without backing)
+
       // Find swap slot
       int slot = -1;
-      for (int i = 0; i < 1024; i++) {
+      for (int i = 0; i < SWAP_SLOTS; i++) {
         if (!p->swap_slots_used[i]) { slot = i; break; }
       }
       if (slot == -1) {
+        // No swap slots available: fatal
         printf("[pid %d] SWAPFULL\n", p->pid);
-        return 0;
-      }
-      p->swap_slots_used[slot] = 1;
-      p->swap_va[slot] = victim_va;
-      p->swap_count++;
-      
-      pte_t *pte = walk(p->pagetable, victim_va, 0);
-      if (!pte || !(*pte & PTE_V)) {
-        printf("[pid %d] SWAPOUT failed: page invalid\n", p->pid);
-        return 0;
-      }
-      char *pa = (char*)PTE2PA(*pte);
-      p->swap_file->off = slot * PGSIZE;
-      int n = filewrite(p->swap_file, (uint64)pa, PGSIZE);
-      if (n != PGSIZE) {
-        printf("[pid %d] SWAPOUT write failed slot=%d\n", p->pid, slot);
+        printf("[pid %d] KILL swap-exhausted\n", p->pid);
         return 0;
       }
 
-      printf("[pid %d] SWAPOUT va=0x%lx slot=%d\n", p->pid, victim_va, slot);
-      uvmunmap(p->pagetable, victim_va, 1, 1);
-    } else {
-      // Clean page simply unmapped
-      printf("[pid %d] DISCARD va=0x%lx\n", p->pid, victim_va);
+      // Tentatively reserve the slot; if write fails we'll release it.
+      p->swap_slots_used[slot] = 1;
+      p->swap_va[slot] = victim_va;
+      p->swap_count++;
+      // Debug: print reservation info
+      if (p->swap_file && p->swap_file->ip)
+        printf("[pid %d] SWAPOUT-Debug: slot=%d va=0x%lx swapfile=%s ip->inum=%d ip->size=%d\n",
+               p->pid, slot, victim_va, p->swapfilename, p->swap_file->ip->inum, p->swap_file->ip->size);
+
+      pte_t *pte = walk(p->pagetable, victim_va, 0);
+      if (!pte || !(*pte & PTE_V)) {
+        printf("[pid %d] SWAPOUT failed: page invalid\n", p->pid);
+        // undo reservation
+        p->swap_slots_used[slot] = 0;
+        p->swap_va[slot] = 0;
+        p->swap_count--;
+        return 0;
+      }
+      char *pa = (char*)PTE2PA(*pte);
+
+      // Ensure swap file/inode is valid; attempt to reopen if needed.
+      if (!p->swap_file || !p->swap_file->ip || p->swap_file->ip->ref < 1) {
+        if (p->swapfilename[0]) {
+          struct inode *sip = namei(p->swapfilename);
+          if (sip) {
+            // namei returns unlocked inode; do not iunlock here
+            if (!p->swap_file) p->swap_file = filealloc();
+            if (p->swap_file) {
+              p->swap_file->type = FD_INODE;
+              p->swap_file->ip = sip;
+              p->swap_file->readable = 1;
+              p->swap_file->writable = 1;
+            }
+          } else {
+            printf("[pid %d] SWAPOUT: cannot reopen swap file %s\n", p->pid, p->swapfilename);
+            // undo reservation
+            p->swap_slots_used[slot] = 0;
+            p->swap_va[slot] = 0;
+            p->swap_count--;
+            return 0;
+          }
+        } else {
+          printf("[pid %d] SWAPOUT: no swap filename\n", p->pid);
+          // undo reservation
+          p->swap_slots_used[slot] = 0;
+          p->swap_va[slot] = 0;
+          p->swap_count--;
+          return 0;
+        }
+      }
+
+      if (!p->swap_file || !p->swap_file->ip) {
+        printf("[pid %d] SWAPOUT: missing swap_file for slot=%d\n", p->pid, slot);
+        // undo reservation
+        p->swap_slots_used[slot] = 0;
+        p->swap_va[slot] = 0;
+        p->swap_count--;
+        return 0;
+      }
+
+  // Allocate a kernel buffer and copy the page contents into it.
+      char *buf = kalloc();
+      if (!buf) {
+        printf("[pid %d] SWAPOUT: kalloc failed for slot=%d\n", p->pid, slot);
+        // undo reservation
+        p->swap_slots_used[slot] = 0;
+        p->swap_va[slot] = 0;
+        p->swap_count--;
+        return 0;
+      }
+      memmove(buf, (void*)pa, PGSIZE);
+
+      // Write page in chunks to avoid exceeding journal transaction limits.
+
+      // Write page in chunks to avoid exceeding journal transaction limits.
+      int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+      int written = 0;
+      // Allocate a zero buffer for on-demand preallocation.
+        while (written < PGSIZE) {
+          int to_write = PGSIZE - written;
+          if (to_write > max) to_write = max;
+
+          begin_op();
+          ilock(p->swap_file->ip);
+          int r = writei(p->swap_file->ip, 0, (uint64)(buf + written), slot * PGSIZE + written, to_write);
+          iunlock(p->swap_file->ip);
+          end_op();
+          if (r != to_write) {
+            // Log details for debugging write failures
+            int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
+            int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
+            printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
+                   p->pid, slot, r, to_write, inode_num, inode_size);
+            // Treat any write failure as swap exhaustion/fatal per spec
+            p->swap_slots_used[slot] = 0;
+            p->swap_va[slot] = 0;
+            p->swap_count--;
+            kfree(buf);
+            printf("[pid %d] SWAPFULL\n", p->pid);
+            printf("[pid %d] KILL swap-exhausted\n", p->pid);
+            return 0;
+          }
+          written += r;
+        }
+      kfree(buf);
+        printf("[pid %d] SWAPOUT va=0x%lx slot=%d\n", p->pid, victim_va, slot);
       uvmunmap(p->pagetable, victim_va, 1, 1);
     }
 
@@ -269,14 +281,123 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
       p->page_seq[i] = p->page_seq[i+1];
       p->page_dirty[i] = p->page_dirty[i+1];
     }
+    // Clear the now-unused tail slot to avoid stale entries.
+    int old_count = p->resident_count;
     p->resident_count--;
+    if (p->resident_count >= 0 && p->resident_count < old_count) {
+      p->resident_pages[p->resident_count] = 0;
+      p->page_seq[p->resident_count] = 0;
+      p->page_dirty[p->resident_count] = 0;
+    }
   }
 
-  // Now allocate a fresh page
+  // Now allocate a fresh page. If out of frames, perform FIFO eviction
   mem = kalloc();
   if (mem == 0) {
-    printf("[pid %d] Allocation failed even after eviction\n", p->pid);
-    return 0;
+    // Out of frames: choose a victim from this process's resident set
+    printf("[pid %d] MEMFULL\n", p->pid);
+    int victim_idx = -1, min_seq = 0x7fffffff;
+    for (int i = 0; i < p->resident_count; i++) {
+      if (p->resident_pages[i] == 0) continue;
+      if (p->page_seq[i] < min_seq) { min_seq = p->page_seq[i]; victim_idx = i; }
+    }
+    if (victim_idx == -1) {
+      printf("[pid %d] KILL no victim found\n", p->pid);
+      return 0;
+    }
+    uint64 victim_va = p->resident_pages[victim_idx];
+    int dirty = p->page_dirty[victim_idx];
+    printf("[pid %d] VICTIM va=0x%lx seq=%d algo=FIFO\n", p->pid, victim_va, min_seq);
+    printf("[pid %d] EVICT  va=0x%lx state=%s\n", p->pid, victim_va, dirty ? "dirty" : "clean");
+
+    int has_exec_backing = 0;
+    if (!dirty) {
+      if ((victim_va >= p->text_start && victim_va < p->text_end) ||
+          (victim_va >= p->data_start && victim_va < p->data_end)) {
+        has_exec_backing = 1;
+      }
+    }
+
+    if (!dirty && has_exec_backing) {
+      printf("[pid %d] DISCARD va=0x%lx\n", p->pid, victim_va);
+      uvmunmap(p->pagetable, victim_va, 1, 1);
+    } else {
+  int slot = -1;
+  for (int i = 0; i < SWAP_SLOTS; i++) if (!p->swap_slots_used[i]) { slot = i; break; }
+      if (slot == -1) {
+        printf("[pid %d] SWAPFULL\n", p->pid);
+        printf("[pid %d] KILL swap-exhausted\n", p->pid);
+        return 0;
+      }
+      p->swap_slots_used[slot] = 1;
+      p->swap_va[slot] = victim_va;
+      p->swap_count++;
+      pte_t *pte = walk(p->pagetable, victim_va, 0);
+      if (!pte || !(*pte & PTE_V)) {
+        p->swap_slots_used[slot] = 0;
+        p->swap_va[slot] = 0;
+        p->swap_count--;
+        return 0;
+      }
+      char *pa = (char*)PTE2PA(*pte);
+      char *buf = kalloc();
+      if (!buf) {
+        p->swap_slots_used[slot] = 0;
+        p->swap_va[slot] = 0;
+        p->swap_count--;
+        return 0;
+      }
+      memmove(buf, (void*)pa, PGSIZE);
+      int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+      int written = 0;
+      while (written < PGSIZE) {
+        int to_write = PGSIZE - written;
+        if (to_write > max) to_write = max;
+        begin_op();
+        ilock(p->swap_file->ip);
+        int r = writei(p->swap_file->ip, 0, (uint64)(buf + written), slot * PGSIZE + written, to_write);
+        iunlock(p->swap_file->ip);
+        end_op();
+        if (r != to_write) {
+          int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
+          int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
+          printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
+                 p->pid, slot, r, to_write, inode_num, inode_size);
+          p->swap_slots_used[slot] = 0;
+          p->swap_va[slot] = 0;
+          p->swap_count--;
+          kfree(buf);
+          printf("[pid %d] SWAPFULL\n", p->pid);
+          printf("[pid %d] KILL swap-exhausted\n", p->pid);
+          return 0;
+        }
+        written += r;
+      }
+      kfree(buf);
+      printf("[pid %d] SWAPOUT va=0x%lx slot=%d\n", p->pid, victim_va, slot);
+      uvmunmap(p->pagetable, victim_va, 1, 1);
+    }
+
+    // Remove victim from resident set
+    for (int i = victim_idx; i < p->resident_count-1; i++) {
+      p->resident_pages[i] = p->resident_pages[i+1];
+      p->page_seq[i] = p->page_seq[i+1];
+      p->page_dirty[i] = p->page_dirty[i+1];
+    }
+    int old_count = p->resident_count;
+    p->resident_count--;
+    if (p->resident_count >= 0 && p->resident_count < old_count) {
+      p->resident_pages[p->resident_count] = 0;
+      p->page_seq[p->resident_count] = 0;
+      p->page_dirty[p->resident_count] = 0;
+    }
+
+    // Now retry allocation
+    mem = kalloc();
+    if (mem == 0) {
+      printf("[pid %d] Allocation failed even after eviction\n", p->pid);
+      return 0;
+    }
   }
 
 
@@ -361,7 +482,7 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
     }
     sfence_vma();
     // Debug: print first 16 bytes of loaded page
-    printf("[pid %d] LOADEXEC va=0x%lx", p->pid, va);
+    printf("[pid %d] LOADEXEC va=0x%lx\n", p->pid, va);
     // for (int dbi = 0; dbi < 16; dbi++) {
     //   printf("%x ", ((unsigned char*)mem)[dbi]);
     // }
@@ -383,7 +504,7 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
     // }
   } else if (cause == 3) {
     int slot = -1;
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < SWAP_SLOTS; i++) {
       if (p->swap_slots_used[i] && p->swap_va[i] == va) { slot = i; break; }
     }
     if (slot == -1) return 0;
@@ -397,6 +518,7 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
       return 0;
     }
     sfence_vma();
+    // Only clear the swap slot after successful mapping
     p->swap_slots_used[slot] = 0;
     p->swap_va[slot] = 0;
     p->swap_count--;
@@ -405,12 +527,16 @@ int handle_page_fault(struct proc *p, uint64 va, int access_type) {
 
   // Add to resident set
   int idx = p->resident_count;
-  if (idx < 1024) {
-    p->resident_pages[idx] = va;
-    p->page_seq[idx] = p->next_fifo_seq++;
-    p->page_dirty[idx] = 0;
-    p->resident_count++;
-    printf("[pid %d] RESIDENT va=0x%lx seq=%d\n", p->pid, va, p->page_seq[idx]);
+  if (idx < SWAP_SLOTS) {
+    if (va != 0) {
+      p->resident_pages[idx] = va;
+      p->page_seq[idx] = p->next_fifo_seq++;
+      // Mark page dirty if the faulting access was a write; otherwise
+      // initialize as clean.
+      p->page_dirty[idx] = (access_type == 1) ? 1 : 0;
+      p->resident_count++;
+      printf("[pid %d] RESIDENT va=0x%lx seq=%d\n", p->pid, va, p->page_seq[idx]);
+    }
   }
   return 1;
 }
@@ -787,6 +913,18 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(n > len)
       n = len;
     memmove((void *)(pa0 + (dstva - va0)), src, n);
+
+    // If this write modified a resident page, mark it dirty in the process's
+    // resident tracking so eviction will write it to swap.
+    struct proc *p = myproc();
+    if (p) {
+      for (int i = 0; i < p->resident_count; i++) {
+        if (p->resident_pages[i] == va0) {
+          p->page_dirty[i] = 1;
+          break;
+        }
+      }
+    }
 
     len -= n;
     src += n;

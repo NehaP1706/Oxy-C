@@ -143,16 +143,16 @@ struct proc {
   char exec_path[64];          // Full executable path for demand paging
   // Demand paging and swapping fields
   // Resident pages FIFO queue (array of virtual addresses)
-  uint64 resident_pages[1024]; // Max 1024 resident pages
+  uint64 resident_pages[SWAP_SLOTS]; // Max resident pages
   int resident_count;          // Number of resident pages
   int next_fifo_seq;           // Next FIFO sequence number
-  int page_seq[1024];          // Sequence number for each resident page
-  int page_dirty[1024];        // Dirty bit for each resident page
+  int page_seq[SWAP_SLOTS];          // Sequence number for each resident page
+  int page_dirty[SWAP_SLOTS];        // Dirty bit for each resident page
 
   // Swap area
   struct file *swap_file;      // Per-process swap file pointer
-  int swap_slots_used[1024];   // Bitmap: 1 if slot used, 0 if free
-  uint64 swap_va[1024];        // VA of page in each swap slot
+  int swap_slots_used[SWAP_SLOTS];   // Bitmap: 1 if slot used, 0 if free
+  uint64 swap_va[SWAP_SLOTS];        // VA of page in each swap slot
   int swap_count;              // Number of swapped pages
   char swapfilename[32];       // Swap file name
 
