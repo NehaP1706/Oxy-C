@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #ifndef SHOP_H
 #define SHOP_H
 
@@ -64,7 +66,9 @@ Customer* q_pop(Queue *q);
 long program_start_sec();
 void print_time_pref();
 void log_customer_action(int id, const char *action);
-void log_chef_action(int id, const char *action);
+void log_chef_action(int id, const char *action, Customer *c);
 
 #endif
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
 
+cd

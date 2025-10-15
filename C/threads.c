@@ -1,4 +1,6 @@
 
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "shop.h"
 
 // ---------- Chef thread ----------
@@ -30,7 +32,7 @@ void *chef_thread(void *arg) {
             pthread_mutex_lock(&payment_mutex);
 
             // perform accept payment (2 seconds) - atomic action
-            log_chef_action(chef_id, "accepts payment");
+            log_chef_action(chef_id, "accepts payment", toPay);
             sleep(2);
 
             // signal customer payment accepted
@@ -55,7 +57,7 @@ void *chef_thread(void *arg) {
             // wait for customer's signal to start baking
             sem_wait(&toBake->sem_start_bake);
 
-            log_chef_action(chef_id, "bakes");
+            log_chef_action(chef_id, "bakes", toBake);
             sleep(2);
 
             // baking finished, inform customer cake ready
@@ -189,3 +191,6 @@ void *customer_thread(void *arg) {
     free(c);
     return NULL;
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
+

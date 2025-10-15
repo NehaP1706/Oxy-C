@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void print_hex(const u_char *buf, int len) {
@@ -135,3 +137,6 @@ void print_layer_header(const char *layer_name, const char *description) {
     printf("                                                                       %-20s | %-55s \n", layer_name, description);
     printf("---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
+

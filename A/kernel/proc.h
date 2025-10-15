@@ -141,6 +141,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   char exec_path[64];          // Full executable path for demand paging
+
+  /////////////////////// LLM Generated Code Begins ///////////////////////
   // Demand paging and swapping fields
   // Resident pages FIFO queue (array of virtual addresses)
   uint64 resident_pages[SWAP_SLOTS]; // Max resident pages
@@ -161,6 +163,7 @@ struct proc {
   uint64 data_start, data_end;
   uint64 heap_start;
   uint64 stack_top;
+  /////////////////////// LLM Generated Code Ends ///////////////////////
 };
 
 #endif

@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "shop.h"
 
 // ---------- Utilities ----------
@@ -19,8 +21,14 @@ void log_customer_action(int id, const char *action) {
     printf("Customer %d %s\n", id, action);
     fflush(stdout);
 }
-void log_chef_action(int id, const char *action) {
+
+void log_chef_action(int chef_id, const char *action, Customer *cust) {
     print_time_pref();
-    printf("Chef %d %s\n", id, action);
+    if (cust != NULL)
+        printf("Chef %d %s for Customer %d\n", chef_id, action, cust->id);
+    else
+        printf("Chef %d %s\n", chef_id, action);
     fflush(stdout);
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

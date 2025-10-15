@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void layer_by_layer(const u_char *pkt, int plen) {
@@ -397,3 +399,5 @@ void inspect_last_session() {
     //print_full_hexdump(pkt, hdr->caplen);  // raw hex dump
     layer_by_layer(pkt, hdr->caplen); // layer-by-layer analysis
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

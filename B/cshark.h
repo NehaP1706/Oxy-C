@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #ifndef CSHARK_H
 #define CSHARK_H
 
@@ -72,3 +74,4 @@ void inspect_last_session();
 void layer_by_layer(const u_char *pkt, int plen);
 
 #endif // CSHARK_H
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

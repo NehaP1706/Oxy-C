@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void handle_sigint(int signo) {
@@ -21,3 +23,5 @@ void free_stored_packets() {
     g_packets = NULL;
     g_stored_count = 0;
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

@@ -69,6 +69,7 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  /////////////////////// LLM Generated Code Begins ///////////////////////
   } else if((r_scause() == 15 || r_scause() == 13 || r_scause() == 12)) {
     // page fault: handle demand paging, swapping, replacement
     uint64 va = r_stval();
@@ -83,6 +84,7 @@ usertrap(void)
       // If handler returns 0, kill process
       setkilled(p);
     }
+  /////////////////////// LLM Generated Code Begins ///////////////////////
   } else {
   printf("[trap] UNEXPECTED: scause=0x%lx sepc=0x%lx stval=0x%lx pid=%d proc=%s entry=0x%lx sp=0x%lx\n", r_scause(), r_sepc(), r_stval(), p->pid, p->name, p->trapframe ? p->trapframe->epc : 0, p->trapframe ? p->trapframe->sp : 0);
   setkilled(p);

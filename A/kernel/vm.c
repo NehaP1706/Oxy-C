@@ -1,3 +1,5 @@
+/////////////////////// LLM Generated Code Begins ///////////////////////
+
 #include "types.h"
 #include "proc.h"
 #include "vm.h"
@@ -540,6 +542,8 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
   }
   return 1;
 }
+
+/////////////////////// LLM Generated Code Ends ///////////////////////
 
 #include "param.h"
 #include "types.h"

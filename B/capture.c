@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void start_capture(const char *dev) {
@@ -111,3 +113,5 @@ void start_capture_with_filter(const char *dev) {
     g_capturing = 0;
     printf("\n[C-Shark] Filtered capture stopped. Returned to main menu.\n\n");
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

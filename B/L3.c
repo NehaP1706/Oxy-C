@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void decode_arp(const u_char *packet) {
@@ -115,3 +117,6 @@ void decode_ipv4(const u_char *packet, int len) {
         decode_udp(udp, payload_len - sizeof(struct udphdr), payload + sizeof(struct udphdr));
     }
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
+

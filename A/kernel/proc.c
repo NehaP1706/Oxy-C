@@ -172,13 +172,6 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  int reclaimed = 0;
-  for (int i = 0; i < SWAP_SLOTS; i++) {
-    if (p->swap_slots_used[i]) {
-      p->swap_slots_used[i] = 0;
-      reclaimed++;
-    }
-  }
   if (p->swap_file) {
     fileclose(p->swap_file);
     p->swap_file = 0;
@@ -188,7 +181,6 @@ freeproc(struct proc *p)
       end_op();
     }
   }
-  printf("[pid %d] SWAPCLEANUP freed_slots=%d\n", p->pid, reclaimed);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -429,7 +421,7 @@ kexit(int status)
       kernel_unlink(p->swapfilename);
       p->swapfilename[0] = '\0';
     }
-    printf("[pid %d] SWAPCLEANUP reclaimed=%d\n", p->pid, reclaimed);
+    printf("[pid %d] SWAPCLEANUP freed_slots=%d\n", p->pid, reclaimed);
   }
 
   begin_op();

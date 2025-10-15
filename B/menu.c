@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
@@ -76,3 +78,5 @@ int select_device(pcap_if_t *alldevs, char *chosen, size_t chosen_len) {
 
     return -3; // invalid
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

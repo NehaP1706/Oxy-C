@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "cshark.h"
 
 void decode_tcp(const struct tcphdr *tcp, int payload_len, const u_char *payload) {
@@ -74,3 +76,5 @@ void decode_udp(const struct udphdr *udp, int payload_len, const u_char *payload
         printf("L7 (Payload): None (0 bytes)\n");
     }
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////

@@ -1,3 +1,5 @@
+//////////////////////////////// LLM Generated Code Begins //////////////////////////////////////
+
 #include "shop.h"
 
 void q_init(Queue *q) { q->head = q->tail = NULL; q->size = 0; }
@@ -16,3 +18,5 @@ Customer* q_pop(Queue *q) {
     q->size--;
     return c;
 }
+
+//////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
