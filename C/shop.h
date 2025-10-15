@@ -70,5 +70,3 @@ void log_chef_action(int id, const char *action, Customer *c);
 
 #endif
 //////////////////////////////// LLM Generated Code Ends //////////////////////////////////////
-
-cd
