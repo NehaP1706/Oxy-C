@@ -118,6 +118,7 @@ void *customer_thread(void *arg) {
         // wait until signaled that a seat is free and it's our turn (FIFO)
         while (1) {
             pthread_cond_wait(&standing_cv, &lock);
+            //sleep(1);
             // when signaled, check if we are at head of standing queue and if a sofa seat is available
             if (standing_queue.head == c && sofa_occupied < SOFA_SEATS) {
                 // remove from standing_queue head (we are head)
@@ -173,16 +174,19 @@ void *customer_thread(void *arg) {
 
     // now payment has been accepted by a chef (chef spent 2s)
     // customer leaves now; free sofa seat and decrement capacity
+
+    log_customer_action(c->id, "leaves");
+    sleep(1);
+
     pthread_mutex_lock(&lock);
     sofa_occupied--;
     current_customers--;
+
     // free a sofa seat, so if anybody is standing, wake them (the earliest standing customer)
     pthread_cond_broadcast(&standing_cv);
     // also notify chefs in case they were waiting for tasks
     pthread_cond_broadcast(&chef_cv);
     pthread_mutex_unlock(&lock);
-
-    log_customer_action(c->id, "leaves");
 
     // cleanup
     sem_destroy(&c->sem_served);
