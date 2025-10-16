@@ -75,16 +75,12 @@ void *chef_thread(void *arg) {
 void *customer_thread(void *arg) {
     Customer *c = (Customer *)arg;
 
-    // enterofficebakery (we simulate action time)
-    log_customer_action(c->id, "enters");
-    sleep(1); // customer action = 1s
-
     pthread_mutex_lock(&lock);
     // capacity check done before creating thread — but double-check here:
     if (current_customers > MAX_CAPACITY) {
         // bakery full, leaves immediately
         pthread_mutex_unlock(&lock);
-        log_customer_action(c->id, "leaves");
+        // log_customer_action(c->id, "leaves");
         // cleanup
         sem_destroy(&c->sem_served);
         sem_destroy(&c->sem_bake_done);
@@ -94,6 +90,10 @@ void *customer_thread(void *arg) {
     }
     // customer is now inside
     // current_customers++;
+
+    // enterofficebakery (we simulate action time)
+    log_customer_action(c->id, "enters");
+    sleep(1); // customer action = 1s
 
     // try to sit on sofa immediately if seat free
     if (sofa_occupied < SOFA_SEATS) {

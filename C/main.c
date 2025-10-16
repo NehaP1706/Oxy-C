@@ -72,8 +72,8 @@ int main() {
         pthread_mutex_lock(&lock);
         if (current_customers >= MAX_CAPACITY) {
             pthread_mutex_unlock(&lock);
-            print_time_pref();
-            printf("Customer %d leaves\n", cur->id);
+            //print_time_pref();
+            //printf("Customer %d leaves\n", cur->id);
             fflush(stdout);
             Arrival *tmp = cur;
             cur = cur->next;
