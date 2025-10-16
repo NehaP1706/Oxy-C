@@ -96,7 +96,7 @@ void *customer_thread(void *arg) {
     sleep(1); // customer action = 1s
 
     // try to sit on sofa immediately if seat free
-    if (sofa_occupied < SOFA_SEATS) {
+    if (sofa_occupied < SOFA_SEATS  && standing_queue.size == 0) {
         // take seat
         sofa_occupied++;
         pthread_mutex_unlock(&lock);
