@@ -159,15 +159,15 @@ void *customer_thread(void *arg) {
     // wait for chef to complete baking (2 sec)
     sem_wait(&c->sem_bake_done);
 
-    // after cake finished -> pay (1s)
-    log_customer_action(c->id, "pays");
-    sleep(1);
-
     // after pay action is done, we add ourselves to payment_queue and wait for an available chef to accept payment
     pthread_mutex_lock(&lock);
     q_push(&payment_queue, c);
     pthread_cond_broadcast(&chef_cv); // notify chefs (they prioritize payment)
     pthread_mutex_unlock(&lock);
+
+    // after cake finished -> pay (1s)
+    log_customer_action(c->id, "pays");
+    sleep(1);
 
     // wait until some chef accepts and posts sem_payment_ok
     sem_wait(&c->sem_payment_ok);
