@@ -144,6 +144,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_test_memstat\
 	# $U/_swapstress\
+	# $U/_stacktest\
 	# $U/_test\
 
 fs.img: mkfs/mkfs README $(UPROGS)

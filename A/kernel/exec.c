@@ -218,13 +218,14 @@ int kexec(char *path, char **argv)
           if (to_write > max) to_write = max;
           begin_op();
           ilock(swapip);
-          int r = writei(swapip, 0, (uint64)(z + written), sp * PGSIZE + written, to_write);
+          int r = writei(swapip, 0, (uint64)(z + written), sp* PGSIZE + written, to_write);
           iunlock(swapip);
           end_op();
           if (r != to_write) {
             // Preallocation failed; likely filesystem is full. Log and stop trying.
             //printf("[exec] swap prealloc failed at page %d wrote=%d expected=%d (stop prealloc)\n", sp, r, to_write);
             sp = prealloc_pages; // break outer loop
+            //printf("BREAKING OUT\n");
             break;
           }
           written += r;

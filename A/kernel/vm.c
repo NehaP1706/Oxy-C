@@ -173,13 +173,13 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
       p->swap_va[slot] = victim_va;
       p->swap_count++;
       // Debug: print reservation info
-      if (p->swap_file && p->swap_file->ip)
-        printf("[pid %d] SWAPOUT-Debug: slot=%d va=0x%lx swapfile=%s ip->inum=%d ip->size=%d\n",
-               p->pid, slot, victim_va, p->swapfilename, p->swap_file->ip->inum, p->swap_file->ip->size);
+      //if (p->swap_file && p->swap_file->ip)
+        //printf("[pid %d] SWAPOUT-Debug: slot=%d va=0x%lx swapfile=%s ip->inum=%d ip->size=%d\n",
+               //p->pid, slot, victim_va, p->swapfilename, p->swap_file->ip->inum, p->swap_file->ip->size);
 
       pte_t *pte = walk(p->pagetable, victim_va, 0);
       if (!pte || !(*pte & PTE_V)) {
-        printf("[pid %d] SWAPOUT failed: page invalid\n", p->pid);
+        //printf("[pid %d] SWAPOUT failed: page invalid\n", p->pid);
         // undo reservation
         p->swap_slots_used[slot] = 0;
         p->swap_va[slot] = 0;
@@ -202,7 +202,7 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
               p->swap_file->writable = 1;
             }
           } else {
-            printf("[pid %d] SWAPOUT: cannot reopen swap file %s\n", p->pid, p->swapfilename);
+            //printf("[pid %d] SWAPOUT: cannot reopen swap file %s\n", p->pid, p->swapfilename);
             // undo reservation
             p->swap_slots_used[slot] = 0;
             p->swap_va[slot] = 0;
@@ -210,7 +210,7 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
             return 0;
           }
         } else {
-          printf("[pid %d] SWAPOUT: no swap filename\n", p->pid);
+          //printf("[pid %d] SWAPOUT: no swap filename\n", p->pid);
           // undo reservation
           p->swap_slots_used[slot] = 0;
           p->swap_va[slot] = 0;
@@ -220,7 +220,7 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
       }
 
       if (!p->swap_file || !p->swap_file->ip) {
-        printf("[pid %d] SWAPOUT: missing swap_file for slot=%d\n", p->pid, slot);
+        //printf("[pid %d] SWAPOUT: missing swap_file for slot=%d\n", p->pid, slot);
         // undo reservation
         p->swap_slots_used[slot] = 0;
         p->swap_va[slot] = 0;
@@ -231,7 +231,7 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
   // Allocate a kernel buffer and copy the page contents into it.
       char *buf = kalloc();
       if (!buf) {
-        printf("[pid %d] SWAPOUT: kalloc failed for slot=%d\n", p->pid, slot);
+        //printf("[pid %d] SWAPOUT: kalloc failed for slot=%d\n", p->pid, slot);
         // undo reservation
         p->swap_slots_used[slot] = 0;
         p->swap_va[slot] = 0;
@@ -257,10 +257,10 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
           end_op();
           if (r != to_write) {
             // Log details for debugging write failures
-            int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
-            int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
-            printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
-                   p->pid, slot, r, to_write, inode_num, inode_size);
+            //int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
+            //int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
+            //printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
+                   //p->pid, slot, r, to_write, inode_num, inode_size);
             // Treat any write failure as swap exhaustion/fatal per spec
             p->swap_slots_used[slot] = 0;
             p->swap_va[slot] = 0;
@@ -361,10 +361,10 @@ handle_page_fault(struct proc *p, uint64 va, int access_type)
         iunlock(p->swap_file->ip);
         end_op();
         if (r != to_write) {
-          int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
-          int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
-          printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
-                 p->pid, slot, r, to_write, inode_num, inode_size);
+          //int inode_num = p->swap_file && p->swap_file->ip ? p->swap_file->ip->inum : -1;
+          //int inode_size = p->swap_file && p->swap_file->ip ? p->swap_file->ip->size : -1;
+          //printf("[pid %d] SWAPOUT write failed slot=%d wrote=%d expected=%d inode=%d size=%d\n",
+                 //p->pid, slot, r, to_write, inode_num, inode_size);
           p->swap_slots_used[slot] = 0;
           p->swap_va[slot] = 0;
           p->swap_count--;
