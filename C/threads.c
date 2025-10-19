@@ -75,19 +75,19 @@ void *chef_thread(void *arg) {
 void *customer_thread(void *arg) {
     Customer *c = (Customer *)arg;
 
-    pthread_mutex_lock(&lock);
-    // capacity check done before creating thread — but double-check here:
-    if (current_customers > MAX_CAPACITY) {
-        // bakery full, leaves immediately
-        pthread_mutex_unlock(&lock);
-        // log_customer_action(c->id, "leaves");
-        // cleanup
-        sem_destroy(&c->sem_served);
-        sem_destroy(&c->sem_bake_done);
-        sem_destroy(&c->sem_payment_ok);
-        free(c);
-        return NULL;
-    }
+    // pthread_mutex_lock(&lock);
+    // // capacity check done before creating thread — but double-check here:
+    // if (current_customers > MAX_CAPACITY) {
+    //     // bakery full, leaves immediately
+    //     pthread_mutex_unlock(&lock);
+    //     // log_customer_action(c->id, "leaves");
+    //     // cleanup
+    //     sem_destroy(&c->sem_served);
+    //     sem_destroy(&c->sem_bake_done);
+    //     sem_destroy(&c->sem_payment_ok);
+    //     free(c);
+    //     return NULL;
+    // }
     // customer is now inside
     // current_customers++;
 
@@ -98,6 +98,7 @@ void *customer_thread(void *arg) {
     // try to sit on sofa immediately if seat free
     if (sofa_occupied < SOFA_SEATS  && standing_queue.size == 0) {
         // take seat
+        pthread_mutex_lock(&lock);
         sofa_occupied++;
         pthread_mutex_unlock(&lock);
 
@@ -159,15 +160,15 @@ void *customer_thread(void *arg) {
     // wait for chef to complete baking (2 sec)
     sem_wait(&c->sem_bake_done);
 
+    // after cake finished -> pay (1s)
+    log_customer_action(c->id, "pays");
+    sleep(1);
+
     // after pay action is done, we add ourselves to payment_queue and wait for an available chef to accept payment
     pthread_mutex_lock(&lock);
     q_push(&payment_queue, c);
     pthread_cond_broadcast(&chef_cv); // notify chefs (they prioritize payment)
     pthread_mutex_unlock(&lock);
-
-    // after cake finished -> pay (1s)
-    log_customer_action(c->id, "pays");
-    sleep(1);
 
     // wait until some chef accepts and posts sem_payment_ok
     sem_wait(&c->sem_payment_ok);
