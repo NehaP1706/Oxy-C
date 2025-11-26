@@ -1,0 +1,14 @@
+{
+    "test_id": "test_63",
+    "section": "B.3",
+    "description": "Tests that log-related commands (log, log purge, log execute) are not themselves added to the command history.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 8 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

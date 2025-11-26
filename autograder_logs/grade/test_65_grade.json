@@ -1,0 +1,14 @@
+{
+    "test_id": "test_65",
+    "section": "B.3",
+    "description": "Tests that `log` stores commands that are duplicates but not sequential, while ignoring sequential duplicates.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 6 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

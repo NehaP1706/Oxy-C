@@ -1,0 +1,14 @@
+{
+    "test_id": "test_43",
+    "section": "B.1",
+    "description": "Tests that 'hop -' does nothing if no previous working directory is stored.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

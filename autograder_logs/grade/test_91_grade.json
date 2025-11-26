@@ -1,0 +1,14 @@
+{
+    "test_id": "test_91",
+    "section": "C.4",
+    "description": "Tests a pipeline with input redirection on the first command and output redirection on the last.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

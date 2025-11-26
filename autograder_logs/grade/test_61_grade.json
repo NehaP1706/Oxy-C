@@ -1,0 +1,14 @@
+{
+    "test_id": "test_61",
+    "section": "B.3",
+    "description": "Tests 'log execute' with out-of-bounds indices (e.g., > history size, 0), which should result in no action.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 5 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

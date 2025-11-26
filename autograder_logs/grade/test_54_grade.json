@@ -1,0 +1,14 @@
+{
+    "test_id": "test_54",
+    "section": "B.2",
+    "description": "Tests that reveal lists files in lexicographical (ASCII) order.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 5 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

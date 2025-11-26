@@ -1,0 +1,14 @@
+{
+    "test_id": "test_47",
+    "section": "B.1",
+    "description": "Tests that `hop` prints an error for each invalid directory in a sequence and successfully navigates to the valid ones.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}
