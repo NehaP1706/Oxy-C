@@ -1,0 +1,14 @@
+{
+    "test_id": "test_119",
+    "section": "E.3",
+    "description": "Tests that Ctrl+D kills background jobs before exiting.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

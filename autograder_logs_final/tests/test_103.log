@@ -1,0 +1,71 @@
+{
+    "testcase": {
+        "section": "D.2",
+        "description": "Tests a sequential command followed by a background command, ensuring the first part waits and the second does not.",
+        "cmds": [
+            {
+                "expect_exit": false,
+                "skip_prompt_check": false,
+                "cmd": "echo sequential part ; sleep 1 &",
+                "sequential_outputs": [
+                    {
+                        "text": "sequential part",
+                        "is_re": false,
+                        "negative_match": false
+                    }
+                ],
+                "nonsequential_outputs": [
+                    {
+                        "text": "\\\\[1\\\\] \\\\d+",
+                        "is_re": true,
+                        "negative_match": false
+                    }
+                ],
+                "ignore_output": false,
+                "cwd_after": null
+            },
+            {
+                "expect_exit": false,
+                "skip_prompt_check": false,
+                "cmd": "sleep 0.9",
+                "sequential_outputs": [],
+                "nonsequential_outputs": [],
+                "ignore_output": false,
+                "cwd_after": null
+            },
+            {
+                "expect_exit": false,
+                "skip_prompt_check": false,
+                "cmd": "echo check cleanup",
+                "sequential_outputs": [
+                    {
+                        "text": "check cleanup",
+                        "is_re": false,
+                        "negative_match": false
+                    }
+                ],
+                "nonsequential_outputs": [
+                    {
+                        "text": "(sleep\\\\s1|sleep) with pid \\\\d+ exited normally",
+                        "is_re": true,
+                        "negative_match": false
+                    }
+                ],
+                "ignore_output": false,
+                "cwd_after": null
+            }
+        ],
+        "timeout": 3.0,
+        "strict_prompt": false,
+        "requires_test_folder": false
+    },
+    "events": [
+        {
+            "time": "2025-11-30T18:11:31.790725+05:30",
+            "type": "eof",
+            "details": "EOF received from child:\n    <pexpect.pty_spawn.spawn object at 0x7c4d61278470>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_0210919d03a24fae9435adef3e710b99', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpsha3vrvi:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.EOF'>\n    match: <class 'pexpect.exceptions.EOF'>\n    match_index: 2\n    exitstatus: None\n    flag_eof: True\n    pid: 1093929\n    child_fd: 32\n    closed: False\n    timeout: 3.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7c4d611f9e40>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1"
+        }
+    ],
+    "raw_log": "##### START RAW OUTPUT #####\n",
+    "py_log": "2025-11-30 18:11:30,605 - tester.fc8b42c8-aa0b-4306-8205-d1541da7ccc8 - INFO - Spawned child:\n    <pexpect.pty_spawn.spawn object at 0x7c4d61278470>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_0210919d03a24fae9435adef3e710b99', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpsha3vrvi:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: None\n    match: None\n    match_index: None\n    exitstatus: None\n    flag_eof: False\n    pid: 1093929\n    child_fd: 32\n    closed: False\n    timeout: 3.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7c4d611f9e40>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-30 18:11:31,790 - tester.fc8b42c8-aa0b-4306-8205-d1541da7ccc8 - DEBUG - Received event:\n    {\n        \"time\": \"2025-11-30T18:11:31.790725+05:30\",\n        \"type\": \"eof\",\n        \"details\": \"EOF received from child:\\n    <pexpect.pty_spawn.spawn object at 0x7c4d61278470>\\n    command: /usr/bin/docker\\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_0210919d03a24fae9435adef3e710b99', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpsha3vrvi:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\\n    buffer (last 100 chars): ''\\n    before (last 100 chars): ''\\n    after: <class 'pexpect.exceptions.EOF'>\\n    match: <class 'pexpect.exceptions.EOF'>\\n    match_index: 2\\n    exitstatus: None\\n    flag_eof: True\\n    pid: 1093929\\n    child_fd: 32\\n    closed: False\\n    timeout: 3.0\\n    delimiter: <class 'pexpect.exceptions.EOF'>\\n    logfile: <tester.FlexibleIO object at 0x7c4d611f9e40>\\n    logfile_read: None\\n    logfile_send: None\\n    maxread: 2000\\n    ignorecase: False\\n    searchwindowsize: None\\n    delaybeforesend: 0.05\\n    delayafterclose: 0.1\\n    delayafterterminate: 0.1\"\n    }\n2025-11-30 18:11:31,790 - tester.fc8b42c8-aa0b-4306-8205-d1541da7ccc8 - INFO - Exit event received, raising ChildProcessExited\n2025-11-30 18:11:31,792 - tester.fc8b42c8-aa0b-4306-8205-d1541da7ccc8 - INFO - Finished running testcase. Child info at exit:\n    <pexpect.pty_spawn.spawn object at 0x7c4d61278470>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_0210919d03a24fae9435adef3e710b99', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpsha3vrvi:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.EOF'>\n    match: <class 'pexpect.exceptions.EOF'>\n    match_index: 1\n    exitstatus: 139\n    flag_eof: True\n    pid: 1093929\n    child_fd: 32\n    closed: False\n    timeout: 3.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7c4d611f9e40>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-30 18:11:31,793 - tester.fc8b42c8-aa0b-4306-8205-d1541da7ccc8 - INFO - Cleaned up temp_dir: /tmp/tmpsha3vrvi\n"
+}

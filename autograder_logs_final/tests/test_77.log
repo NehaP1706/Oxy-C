@@ -1,0 +1,35 @@
+{
+    "testcase": {
+        "section": "C.2",
+        "description": "Tests that redirecting input from a directory results in an error.",
+        "cmds": [
+            {
+                "expect_exit": false,
+                "skip_prompt_check": false,
+                "cmd": "cat < test/folder1",
+                "sequential_outputs": [
+                    {
+                        "text": "cat: -: Is a directory",
+                        "is_re": false,
+                        "negative_match": false
+                    }
+                ],
+                "nonsequential_outputs": [],
+                "ignore_output": false,
+                "cwd_after": null
+            }
+        ],
+        "timeout": 2.0,
+        "strict_prompt": false,
+        "requires_test_folder": true
+    },
+    "events": [
+        {
+            "time": "2025-11-30T18:45:25.983064+05:30",
+            "type": "eof",
+            "details": "EOF received from child:\n    <pexpect.pty_spawn.spawn object at 0x7508ac164a10>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_34b5fb6145314a3c91ab289debc97de5', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpyu45alsh:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.EOF'>\n    match: <class 'pexpect.exceptions.EOF'>\n    match_index: 2\n    exitstatus: None\n    flag_eof: True\n    pid: 1255461\n    child_fd: 24\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7508ac183100>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1"
+        }
+    ],
+    "raw_log": "##### START RAW OUTPUT #####\n",
+    "py_log": "2025-11-30 18:45:24,876 - tester.d67f1656-0a28-4386-ab79-bc871bb8cf86 - INFO - Spawned child:\n    <pexpect.pty_spawn.spawn object at 0x7508ac164a10>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_34b5fb6145314a3c91ab289debc97de5', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpyu45alsh:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: None\n    match: None\n    match_index: None\n    exitstatus: None\n    flag_eof: False\n    pid: 1255461\n    child_fd: 24\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7508ac183100>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-30 18:45:25,983 - tester.d67f1656-0a28-4386-ab79-bc871bb8cf86 - DEBUG - Received event:\n    {\n        \"time\": \"2025-11-30T18:45:25.983064+05:30\",\n        \"type\": \"eof\",\n        \"details\": \"EOF received from child:\\n    <pexpect.pty_spawn.spawn object at 0x7508ac164a10>\\n    command: /usr/bin/docker\\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_34b5fb6145314a3c91ab289debc97de5', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpyu45alsh:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\\n    buffer (last 100 chars): ''\\n    before (last 100 chars): ''\\n    after: <class 'pexpect.exceptions.EOF'>\\n    match: <class 'pexpect.exceptions.EOF'>\\n    match_index: 2\\n    exitstatus: None\\n    flag_eof: True\\n    pid: 1255461\\n    child_fd: 24\\n    closed: False\\n    timeout: 2.0\\n    delimiter: <class 'pexpect.exceptions.EOF'>\\n    logfile: <tester.FlexibleIO object at 0x7508ac183100>\\n    logfile_read: None\\n    logfile_send: None\\n    maxread: 2000\\n    ignorecase: False\\n    searchwindowsize: None\\n    delaybeforesend: 0.05\\n    delayafterclose: 0.1\\n    delayafterterminate: 0.1\"\n    }\n2025-11-30 18:45:25,983 - tester.d67f1656-0a28-4386-ab79-bc871bb8cf86 - INFO - Exit event received, raising ChildProcessExited\n2025-11-30 18:45:25,985 - tester.d67f1656-0a28-4386-ab79-bc871bb8cf86 - INFO - Finished running testcase. Child info at exit:\n    <pexpect.pty_spawn.spawn object at 0x7508ac164a10>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_34b5fb6145314a3c91ab289debc97de5', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpyu45alsh:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.EOF'>\n    match: <class 'pexpect.exceptions.EOF'>\n    match_index: 1\n    exitstatus: 139\n    flag_eof: True\n    pid: 1255461\n    child_fd: 24\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x7508ac183100>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-30 18:45:25,985 - tester.d67f1656-0a28-4386-ab79-bc871bb8cf86 - INFO - Cleaned up temp_dir: /tmp/tmpyu45alsh\n"
+}

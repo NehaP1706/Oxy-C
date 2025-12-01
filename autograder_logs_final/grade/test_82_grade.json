@@ -1,0 +1,14 @@
+{
+    "test_id": "test_82",
+    "section": "C.3",
+    "description": "Tests that for multiple mixed output redirections, only the last one takes effect.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 6 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

@@ -1,0 +1,14 @@
+{
+    "test_id": "test_108",
+    "section": "D.2",
+    "description": "Tests that a background process is correctly detached from terminal input, causing it to receive an immediate EOF.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 3 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

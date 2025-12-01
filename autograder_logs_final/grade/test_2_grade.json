@@ -1,0 +1,14 @@
+{
+    "test_id": "test_2",
+    "section": "A.2",
+    "description": "Checks if the shell can handle multiple consecutive empty inputs.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 3 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

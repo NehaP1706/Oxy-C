@@ -1,0 +1,14 @@
+{
+    "test_id": "test_57",
+    "section": "B.2",
+    "description": "Tests the default (no flags) output format of reveal, which should be space-separated and lexicographically sorted.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 1 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}
