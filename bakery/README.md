@@ -4,6 +4,16 @@ make all
 ./main
 ```
 
+## Input Format:
+```c
+<timestamp1> Customer <number1>
+<timestamp2> Customer <number2>
+<timestamp3> Customer <number3>
+<timestamp4> Customer <number4>
+...
+<EOF>
+```
+
 ## Assumptions:
 1. A customer must sit in order to request for cake.
 2. Any customer can pay at any time, but the payment is processed and accepted only when the register gets free at the appropriate time.
