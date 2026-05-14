@@ -1,0 +1,14 @@
+{
+    "test_id": "test_124",
+    "section": "E.4",
+    "description": "Tests that 'fg' without a job number brings the most recently created job to the foreground.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 3 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

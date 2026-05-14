@@ -1,0 +1,14 @@
+{
+    "test_id": "test_32",
+    "section": "A.3",
+    "description": "Tests valid syntax for a command that ends with a semicolon followed by a background operator.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 1 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

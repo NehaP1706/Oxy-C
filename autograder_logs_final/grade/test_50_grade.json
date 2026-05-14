@@ -1,0 +1,14 @@
+{
+    "test_id": "test_50",
+    "section": "B.2",
+    "description": "Tests reveal on an empty directory, both with and without the -a flag.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 3 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

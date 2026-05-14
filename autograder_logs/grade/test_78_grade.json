@@ -1,0 +1,14 @@
+{
+    "test_id": "test_78",
+    "section": "C.3",
+    "description": "Tests basic output redirection. Creates a file and verifies its content.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

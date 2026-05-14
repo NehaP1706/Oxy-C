@@ -1,0 +1,14 @@
+{
+    "test_id": "test_59",
+    "section": "B.3",
+    "description": "Tests if command history persists across shell restarts and if 'log purge' correctly clears it.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 7 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

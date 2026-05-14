@@ -1,0 +1,14 @@
+{
+    "test_id": "test_94",
+    "section": "C.4",
+    "description": "Tests a pipeline where the first command is invalid, ensuring subsequent commands still run.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 1 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

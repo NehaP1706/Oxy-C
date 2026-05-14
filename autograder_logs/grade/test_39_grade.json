@@ -1,0 +1,14 @@
+{
+    "test_id": "test_39",
+    "section": "B.1",
+    "description": "Tests that hop prints an error and does not change the current working directory when the target directory does not exist.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

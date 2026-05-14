@@ -1,0 +1,14 @@
+{
+    "test_id": "test_105",
+    "section": "D.2",
+    "description": "Tests running a command with pipes in the background and checks for multiple cleanup messages.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

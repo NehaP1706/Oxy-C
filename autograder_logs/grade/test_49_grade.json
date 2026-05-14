@@ -1,0 +1,14 @@
+{
+    "test_id": "test_49",
+    "section": "B.2",
+    "description": "Tests that reveal prints a syntax error when more than one path argument is provided.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

@@ -1,0 +1,14 @@
+{
+    "test_id": "test_52",
+    "section": "B.2",
+    "description": "Tests the 'reveal -l' flag to ensure it lists non-hidden items in a sorted, line-by-line format.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 3 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

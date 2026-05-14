@@ -1,0 +1,14 @@
+{
+    "test_id": "test_44",
+    "section": "B.1",
+    "description": "Tests sequential 'hop' arguments where one is invalid. The valid hops before and after the invalid one should still execute.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 2 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

@@ -1,0 +1,14 @@
+{
+    "test_id": "test_76",
+    "section": "C.2",
+    "description": "Tests multiple input redirections where the first file does not exist. The command should not execute.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 1 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}

@@ -1,0 +1,68 @@
+{
+    "testcase": {
+        "section": "C.4",
+        "description": "Tests that output redirection on a non-final command in a pipeline correctly redirects that command's output, starving the next command in the pipe.",
+        "cmds": [
+            {
+                "expect_exit": false,
+                "cmd": "ls test > ls_out.txt | wc -l",
+                "sequential_outputs": [
+                    {
+                        "text": "\\\\s*0\\\\s*",
+                        "is_re": true,
+                        "negative_match": false
+                    }
+                ],
+                "nonsequential_outputs": [],
+                "ignore_output": false,
+                "cwd_after": null
+            },
+            {
+                "expect_exit": false,
+                "cmd": "cat ls_out.txt",
+                "sequential_outputs": [
+                    {
+                        "text": "file4.txt",
+                        "is_re": false,
+                        "negative_match": false
+                    },
+                    {
+                        "text": "file5.txt",
+                        "is_re": false,
+                        "negative_match": false
+                    },
+                    {
+                        "text": "folder1",
+                        "is_re": false,
+                        "negative_match": false
+                    },
+                    {
+                        "text": "folder2",
+                        "is_re": false,
+                        "negative_match": false
+                    },
+                    {
+                        "text": "folder3",
+                        "is_re": false,
+                        "negative_match": false
+                    }
+                ],
+                "nonsequential_outputs": [],
+                "ignore_output": false,
+                "cwd_after": null
+            }
+        ],
+        "timeout": 2.0,
+        "strict_prompt": false,
+        "requires_test_folder": true
+    },
+    "events": [
+        {
+            "time": "2025-11-19T23:07:34.674817+05:30",
+            "type": "timeout",
+            "details": "Child timed out:\n    <pexpect.pty_spawn.spawn object at 0x78f014e68950>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_12264a98b7db489ab20e838eef06d860', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpzf1tvic0:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.TIMEOUT'>\n    match: <class 'pexpect.exceptions.TIMEOUT'>\n    match_index: 3\n    exitstatus: None\n    flag_eof: False\n    pid: 646161\n    child_fd: 111\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x78f014e293c0>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1"
+        }
+    ],
+    "raw_log": "##### START RAW OUTPUT #####\n",
+    "py_log": "2025-11-19 23:07:32,672 - tester.5934024c-13fa-47fa-aa06-3409e3b3124c - INFO - Spawned child:\n    <pexpect.pty_spawn.spawn object at 0x78f014e68950>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_12264a98b7db489ab20e838eef06d860', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpzf1tvic0:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: None\n    match: None\n    match_index: None\n    exitstatus: None\n    flag_eof: False\n    pid: 646161\n    child_fd: 111\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x78f014e293c0>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-19 23:07:34,674 - tester.5934024c-13fa-47fa-aa06-3409e3b3124c - DEBUG - Received event:\n    {\n        \"time\": \"2025-11-19T23:07:34.674817+05:30\",\n        \"type\": \"timeout\",\n        \"details\": \"Child timed out:\\n    <pexpect.pty_spawn.spawn object at 0x78f014e68950>\\n    command: /usr/bin/docker\\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_12264a98b7db489ab20e838eef06d860', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpzf1tvic0:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\\n    buffer (last 100 chars): ''\\n    before (last 100 chars): ''\\n    after: <class 'pexpect.exceptions.TIMEOUT'>\\n    match: <class 'pexpect.exceptions.TIMEOUT'>\\n    match_index: 3\\n    exitstatus: None\\n    flag_eof: False\\n    pid: 646161\\n    child_fd: 111\\n    closed: False\\n    timeout: 2.0\\n    delimiter: <class 'pexpect.exceptions.EOF'>\\n    logfile: <tester.FlexibleIO object at 0x78f014e293c0>\\n    logfile_read: None\\n    logfile_send: None\\n    maxread: 2000\\n    ignorecase: False\\n    searchwindowsize: None\\n    delaybeforesend: 0.05\\n    delayafterclose: 0.1\\n    delayafterterminate: 0.1\"\n    }\n2025-11-19 23:07:34,675 - tester.5934024c-13fa-47fa-aa06-3409e3b3124c - INFO - Exit event received, raising ChildProcessExited\n2025-11-19 23:07:34,766 - tester.5934024c-13fa-47fa-aa06-3409e3b3124c - INFO - Finished running testcase. Child info at exit:\n    <pexpect.pty_spawn.spawn object at 0x78f014e68950>\n    command: /usr/bin/docker\n    args: [b'/usr/bin/docker', b'run', b'--name', b'tester_12264a98b7db489ab20e838eef06d860', b'-i', b'-t', b'--rm', b'--init', b'-h', b'osntesting', b'-v', b'/tmp/tmpzf1tvic0:/app', b'-w', b'/app', b'shell_tester:latest', b'/app/shell.out']\n    buffer (last 100 chars): ''\n    before (last 100 chars): ''\n    after: <class 'pexpect.exceptions.EOF'>\n    match: <class 'pexpect.exceptions.EOF'>\n    match_index: 0\n    exitstatus: None\n    flag_eof: True\n    pid: 646161\n    child_fd: 111\n    closed: False\n    timeout: 2.0\n    delimiter: <class 'pexpect.exceptions.EOF'>\n    logfile: <tester.FlexibleIO object at 0x78f014e293c0>\n    logfile_read: None\n    logfile_send: None\n    maxread: 2000\n    ignorecase: False\n    searchwindowsize: None\n    delaybeforesend: 0.05\n    delayafterclose: 0.1\n    delayafterterminate: 0.1\n2025-11-19 23:07:34,766 - tester.5934024c-13fa-47fa-aa06-3409e3b3124c - INFO - Cleaned up temp_dir: /tmp/tmpzf1tvic0\n"
+}

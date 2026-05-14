@@ -1,0 +1,14 @@
+{
+    "test_id": "test_97",
+    "section": "D.1",
+    "description": "Tests that sequential execution continues after a command fails.",
+    "passed": false,
+    "failure": {
+        "step_index": 0,
+        "command": "Sequence Check",
+        "reason": "Expected 1 commands, but executed 0.",
+        "expected": null,
+        "actual": null
+    },
+    "score": 0.0
+}
